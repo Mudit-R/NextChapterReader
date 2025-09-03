@@ -1,2 +1,55 @@
 # NextChapter
-A modern web-based bookstore that makes reading smarter and more engaging. Users can explore, purchase, and read books online with features like personalized AI recommendations, intelligent summaries, and multimedia-enhanced reading experiences. Designed with a clean, scalable UI and built as a full-stack web app.
+
+## 🚀 Overview
+An online bookstore that redefines digital reading. Users can explore, purchase, and read books online, with **AI-driven recommendations, intelligent summaries, and multimedia-enhanced reading experiences**. Designed for a seamless, modern user experience with a scalable architecture.
+
+---
+
+## ✨ Features
+
+* 🔍 **Smart Search** – Find books instantly with advanced filters
+* 🤖 **AI Recommendations** – Personalized book suggestions
+* 📖 **Online Reading Mode** – Elegant, distraction-free reader
+* 📝 **AI Summaries & Insights** – Quick takeaways for faster learning
+* 🎥 **Interactive Content** – Multimedia elements for engaging reading
+* 🧾 **User Library** – Save and manage your collection across devices
+
+---
+
+## 🛠️ Tech Stack
+
+* **Frontend**: React + Tailwind CSS (clean, responsive UI)
+* **Backend**: Node.js / Express (REST APIs)
+* **Database**: MongoDB / PostgreSQL
+* **AI Integration**: NLP models for recommendations & summaries
+* **Deployment**: Vercel / Netlify (frontend), Render / Heroku (backend)
+
+---
+
+## 📂 Project Structure
+
+```bash
+.
+├── frontend/        # React app
+├── backend/         # Node.js API
+├── docs/            # Documentation & designs
+└── README.md
+```
+
+---
+
+## ⚡ Getting Started
+
+### 1. Clone the repo
+
+```bash
+https://github.com/Prasanna-Gupta/NextChapter.git
+```
+
+---
+
+## 📸 Screenshots
+
+*(Add Figma UI previews or app screenshots here)*
+
+---
