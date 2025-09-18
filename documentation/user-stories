@@ -56,3 +56,66 @@ Back of the card:
 ● Graphs/charts showing trends over time (weekly, monthly, yearly).
 ● AI-driven insights on upcoming popular genres.
 ● Data export option (CSV/PDF) for reports.
+
+
+
+                                         Reading & Progress Tracking
+                                              Actor: End User
+
+User Story 1: Reading Books
+
+Front of the card:
+As a user, I want to open and read a book in the app so that I can enjoy the content directly within the platform.
+
+Back of the card:
+● From the catalogue, clicking a book opens the reader interface.
+● The system loads the book content (text, EPUB/PDF) in a responsive reading view.
+● User can navigate between chapters/pages using scroll or navigation controls.
+● Book content is formatted for readability (font size, background theme options).
+● Reading progress is automatically tracked as the user moves through the content.
+
+User Story 2: Marking a Book as Read
+
+Front of the card:
+As a user, I want to mark a book as "Read" so that I can keep track of books I have completed.
+
+Back of the card:
+● A “Mark as Read” button/option must be visible on the book’s detail page and inside the reader.
+● Clicking it updates the user’s library status in Firestore (users/{uid}/library).
+● Once marked, the book appears in the “Books Read” section of the profile.
+● The status can be updated again (e.g., changed back to “Reading” if needed).
+
+User Story 3: Marking a Book to Read in the Future
+
+Front of the card:
+As a user, I want to add a book to my "To Read" list so that I can plan future reading.
+
+Back of the card:
+● A “Save to To-Read List” button must be visible on the book’s detail page.
+● Clicking it saves the book’s ID to the user’s Firestore library with status to_read.
+● The “To Read” list is accessible from the user profile/dashboard.
+● The user can remove the book from the list or change its status anytime.
+
+User Story 4: Viewing Books Read
+
+Front of the card:
+As a user, I want to view a list of all books I’ve read so that I can see my completed reading history.
+
+Back of the card:
+● The “Books Read” section is accessible from the user profile.
+● It displays a list/grid of all books marked with status read.
+● Each entry shows cover image, title, author, and date completed.
+● The user can click any book to revisit its details or open it again.
+● The system updates this list in real time when new books are marked as read.
+
+User Story 5: Cross-Device Sync
+
+Front of the card:
+As a user, I want my reading progress, bookmarks, and highlights to sync across devices so that I can continue reading seamlessly.
+
+Back of the card:
+● The system stores progress/bookmarks/highlights in Firestore under users/{uid}.
+● Progress is auto-synced every few seconds or on chapter change.
+● When the user opens the same book on another device, the system loads the last saved progress automatically.
+● If progress differs between devices, the system resolves by using the most recent update (updatedAt field).
+● Bookmarks and notes are synced in real time, ensuring consistency across devices.
