@@ -253,7 +253,7 @@ As an end user, I want to write and upload detailed reviews of books I read, so 
 
 Back of the card:
 ● User can type a text review and submit it.
-● Review gets linked to the correct book.
+● Review gets displayed below the correct book.
 ● Reviews are displayed publicly for other readers.
 ● User can edit or delete their own review.
 
