@@ -6,13 +6,13 @@
 User Story 1: User Registration
 
 Front of the card:
-As a new user, I want to sign up using my email/username and password, so that I can create an account and access the system.
+As a new user, I want to sign up using my email and password, so that I can create an account and access the system.
 
 Back of the card:
-● User can provide a unique email/username and password.
+● User can provide a unique email and password.
 ● Password must meet security rules (min length, special characters).
 ● Account gets created only if details are valid.
-● Error shown if email/username already exists.
+● Error shown if email already exists.
 
 
 User Story 2: User Login
@@ -21,7 +21,7 @@ Front of the card:
 As a registered user, I want to log in securely with my credentials, so that I can access my personal account.
 
 Back of the card:
-● User can log in with valid email/username and password.
+● User can log in with valid email and password.
 ● Invalid credentials are rejected with an error message.
 ● Successful login starts a new session.
 ● Login attempts are rate-limited to prevent brute force attacks.
@@ -33,10 +33,9 @@ Front of the card:
 As a user, I want to sign in using my social media accounts, so that I can log in quickly without creating a new password.
 
 Back of the card:
-● Support Google and Facebook login via OAuth.
+● Support Google and apple login via OAuth.
 ● Successful authentication creates or links to an account.
 ● Login failures handled gracefully with appropriate messages.
-● Option to disconnect linked social accounts later.
 
 
 User Story 4: Password Recovery
@@ -81,25 +80,13 @@ Front of the card:
 As a user, I want to edit my profile details, so that I can keep my information up to date.
 
 Back of the card:
-● User can update name, password, and profile picture.
+● User can update username, password, and profile picture.
 ● Changes saved to the database and confirmed with a message.
 ● Updates validated before saving (e.g., strong password rules).
 ● System prevents updating with duplicate email/username.
 
 
-User Story 8: Language Preference
-
-Front of the card:
-As a user, I want to choose my preferred language, so that I can use the system in a language I understand best.
-
-Back of the card:
-● Dropdown/list of available languages provided.
-● System interface updates according to selection.
-● Preference saved in the user’s profile.
-● Language setting persists across sessions.
-
-
-User Story 9: Security Notifications
+User Story 8: Security Notifications
 
 Front of the card:
 As a user, I want to get notified when my account is accessed from a new device, so that I can protect my account against unauthorized access.
@@ -110,18 +97,6 @@ Back of the card:
 ● User can review device activity from account settings.
 ● Option to block or sign out suspicious sessions.
 
-
-User Story 10: Admin Authentication
-
-Front of the card:
-As an admin, I want to log in with secure admin credentials, so that I can manage books, authors, and users safely.
-
-Back of the card:
-● Admin login page separate from user login.
-● Only accounts with admin role can access the dashboard.
-● Failed login attempts logged for security monitoring.
-● Admin sessions end securely on logout.
-● Admin password policies stricter than regular users.
 
 
                                              Admin & Analytics
