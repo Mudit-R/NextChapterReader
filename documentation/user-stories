@@ -1,5 +1,129 @@
                                                User Stories
 
+                                  Authentication & Profile Management
+                                     Actor : End User / Admin
+
+User Story 1: User Registration
+
+Front of the card:
+As a new user, I want to sign up using my email/username and password, so that I can create an account and access the system.
+
+Back of the card:
+● User can provide a unique email/username and password.
+● Password must meet security rules (min length, special characters).
+● Account gets created only if details are valid.
+● Error shown if email/username already exists.
+
+
+User Story 2: User Login
+
+Front of the card:
+As a registered user, I want to log in securely with my credentials, so that I can access my personal account.
+
+Back of the card:
+● User can log in with valid email/username and password.
+● Invalid credentials are rejected with an error message.
+● Successful login starts a new session.
+● Login attempts are rate-limited to prevent brute force attacks.
+
+
+User Story 3: Social Login
+
+Front of the card:
+As a user, I want to sign in using my social media accounts, so that I can log in quickly without creating a new password.
+
+Back of the card:
+● Support Google and Facebook login via OAuth.
+● Successful authentication creates or links to an account.
+● Login failures handled gracefully with appropriate messages.
+● Option to disconnect linked social accounts later.
+
+
+User Story 4: Password Recovery
+
+Front of the card:
+As a user who forgot my password, I want to reset it via email/SMS verification, so that I can regain access to my account.
+
+Back of the card:
+● Password reset request triggers verification email or SMS.
+● User must confirm identity before setting a new password.
+● Old password becomes invalid after reset.
+● Reset link/code expires after a limited time.
+
+
+User Story 5: Secure SignOut
+
+Front of the card:
+As a logged-in user, I want to sign out from the system, so that I can ensure no one else accesses my account.
+
+Back of the card:
+● User session ends immediately on sign out.
+● Tokens/cookies invalidated on the server.
+● User redirected to login page after logout.
+● Logout option available on all screens.
+
+
+User Story 6: View Profile
+
+Front of the card:
+As a user, I want to view my profile information, so that I can see my account details clearly.
+
+Back of the card:
+● Profile displays name, email, subscriptions, and activity.
+● Data retrieved securely from the database.
+● Profile page accessible only to authenticated users.
+● Unauthorized access blocked with error/redirect.
+
+
+User Story 7: Update Profile
+
+Front of the card:
+As a user, I want to edit my profile details, so that I can keep my information up to date.
+
+Back of the card:
+● User can update name, password, and profile picture.
+● Changes saved to the database and confirmed with a message.
+● Updates validated before saving (e.g., strong password rules).
+● System prevents updating with duplicate email/username.
+
+
+User Story 8: Language Preference
+
+Front of the card:
+As a user, I want to choose my preferred language, so that I can use the system in a language I understand best.
+
+Back of the card:
+● Dropdown/list of available languages provided.
+● System interface updates according to selection.
+● Preference saved in the user’s profile.
+● Language setting persists across sessions.
+
+
+User Story 9: Security Notifications
+
+Front of the card:
+As a user, I want to get notified when my account is accessed from a new device, so that I can protect my account against unauthorized access.
+
+Back of the card:
+● System detects and logs new device/browser logins.
+● Notification sent via email or SMS for new device access.
+● User can review device activity from account settings.
+● Option to block or sign out suspicious sessions.
+
+
+User Story 10: Admin Authentication
+
+Front of the card:
+As an admin, I want to log in with secure admin credentials, so that I can manage books, authors, and users safely.
+
+Back of the card:
+● Admin login page separate from user login.
+● Only accounts with admin role can access the dashboard.
+● Failed login attempts logged for security monitoring.
+● Admin sessions end securely on logout.
+● Admin password policies stricter than regular users.
+
+
                                              Admin & Analytics
                                            Actor : Admin/Manager
 
