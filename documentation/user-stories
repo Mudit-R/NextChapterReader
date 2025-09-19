@@ -120,7 +120,63 @@ Back of the card:
 ● If progress differs between devices, the system resolves by using the most recent update (updatedAt field).
 ● Bookmarks and notes are synced in real time, ensuring consistency across devices.
 
+                                          Engagement & Community
+                                             Actor: End User
 
+User Story 1: Rating the Book
+
+Front of the card:
+As a user, I want to give a star rating to a book I’ve read, so that I can express my overall opinion and help other readers decide if they want to read it.
+
+Back of the card:
+● User can select a rating (e.g., 1–5 stars).
+● The system saves the rating to the book.
+● Average rating of the book updates automatically.
+● User can update/change their rating.
+
+User Story 2: Uploading Reviews
+
+Front of the card:
+As an end user, I want to write and upload detailed reviews of books I read, so that I can share my thoughts, experiences, and recommendations with the community.
+
+Back of the card:
+● User can type a text review and submit it.
+● Review gets linked to the correct book.
+● Reviews are displayed publicly for other readers.
+● User can edit or delete their own review.
+
+User Story 3: Discussing About the Book
+
+Front of the card:
+As an end user, I want to participate in discussions and comment on books I read, so that I can exchange perspectives.
+
+Back of the card:
+● User can comment on books or reviews.
+● Discussion threads display in proper order.
+● Users can reply to others’ comments.
+● Notifications are sent when someone replies.
+
+User Story 4: Bookmarking & Notes
+
+Front of the card:
+As an end user, I want to bookmark pages and add notes, so that I can continue where I left off and revisit important sections later.
+
+Back of the card:
+● User can bookmark a page in a book.
+● Notes can be attached to bookmarks.
+● Bookmarks and notes are saved persistently.
+● User can view and manage (edit/delete) bookmarks & notes.
+
+User Story 5: Highlighting
+
+Front of the card:
+As an end user, I want to highlight passages or words, so that I can mark meaningful content for later reference.
+
+Back of the card:
+● User can select text and apply highlights.
+● Highlighted text is saved and shown on revisit.
+● User can remove or change highlight color.
+● Highlights are stored per book and per user.
 
 
                                     Catalogue & Discovery 
