@@ -94,7 +94,7 @@ As a user, I want to get notified when my account is accessed from a new device,
 
 Back of the card:
 ● System detects and logs new device/browser logins.
-● Notification sent via email or SMS for new device access.
+● Notification sent via email for new device access.
 ● User can review device activity from account settings.
 ● Option to block or sign out suspicious sessions.
 
