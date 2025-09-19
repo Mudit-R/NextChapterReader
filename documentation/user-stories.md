@@ -176,27 +176,27 @@ As a user, I want to open and read a book in the app so that I can enjoy the con
 
 ---
 
-### User Story 15: Marking a Book as Read  
+### User Story 15: Automatic Marking a Book as Read  
 **Front of the card:**  
-As a user, I want to mark a book as "Read" so that I can keep track of books I have completed.  
+As a user, I want the system to automatically mark a book as "Read" when I finish reading.  
 
 **Back of the card:**  
-- A “Mark as Read” button must be visible on book details.  
-- Clicking updates the library status in Firestore.  
-- Appears in the “Books Read” section of the profile.  
-- Status can be changed back if needed.  
+- When the user reaches the last page of the book, its status is auto-updated to "Read" in Firestore.  
+- The book immediately appears in the “Books Read” section of the profile.  
+- The user can manually revert the status if marked incorrectly.  
+- A confirmation toast/notification is shown to inform the user.  
 
 ---
 
-### User Story 16: Marking a Book to Read in the Future  
+### User Story 16: Adding a Book to Wishlist 
 **Front of the card:**  
-As a user, I want to add a book to my "To Read" list so that I can plan future reading.  
+As a user, I want to add a book to my wishlist so that I can keep track of books I want to read in the future.  
 
 **Back of the card:**  
-- A “Save to To-Read List” button on the book detail page.  
-- Clicking saves to the user’s Firestore library.  
-- Accessible from the user profile/dashboard.  
-- The user can remove or update the status anytime.  
+- A “Add to Wishlist” button is available on the book detail page.  
+- Clicking saves the book to the user’s “Wishlist/To-Read” list in Firestore.  
+- The wishlist is accessible from the user’s profile/dashboard.  
+- User can remove or move a book from wishlist to "Currently Reading" or "Read" anytime.   
 
 ---
 
