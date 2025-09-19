@@ -98,6 +98,18 @@ Back of the card:
 ● User can review device activity from account settings.
 ● Option to block or sign out suspicious sessions.
 
+User Story 9: Admin Authentication
+
+Front of the card:
+As an admin, I want to log in with secure admin credentials, so that I can manage books, authors, and users safely.
+
+Back of the card:
+● Admin login page is same as user login.
+● Only accounts with admin role can access the dashboard.
+● Failed login attempts logged for security monitoring.
+● Admin sessions end securely on logout.
+● Admin password policies stricter than regular users.
+
 
 
                                              Admin & Analytics
