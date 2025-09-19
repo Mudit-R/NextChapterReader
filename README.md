@@ -51,6 +51,10 @@ https://github.com/Prasanna-Gupta/NextChapter.git
 
 ## 📸 Screenshots
 
-*(Add Figma UI previews or app screenshots here)*
+[Figma File](https://www.figma.com/design/1hZPTeSGErMWfbfgiuGxFP/NextChapter?node-id=261-76&t=6hj7PHXcodaAcMU4-1)
+
+![UI Library](gallery/ss.png)
+
+![UI Library](gallery/Login.png)
 
 ---
