@@ -69,3 +69,47 @@ Core reading features and enhancements for readers.
 - US56 – Audio Book Support
 
 ---
+
+## Epic 5: Community & Engagement
+
+Social features, reviews, ratings, discussions, and reporting.
+
+- US19 – Rating the Book
+- US20 – Uploading Reviews
+- US21 – Discussing About the Book
+- US47 – Like/Upvote Reviews
+- US51 – Reporting Inappropriate Content
+
+---
+
+## Epic 6: Payments & Subscription Management
+
+Covers subscription, payments, trials, and related management.
+
+- US28 – Subscribing to a Plan
+- US29 – Managing Subscription Plans (also in Admin Epic overlap)
+- US30 – Completing Secure Payments
+- US31 – Monitoring Secure Payments (Admin overlap)
+- US32 – Viewing Order History
+- US33 – Maintaining Order History (Admin overlap)
+- US34 – Analyzing Retention Data (Admin overlap)
+- US50 – Trial/Free Plans
+
+---
+
+## Epic 7: AI Features & Personalization
+
+AI-driven recommendations, summaries, digests, challenges, and moderation.
+
+- US35 – Selecting Favourite Authors & Genres
+- US36 – AI Smart Suggestions
+- US37 – AI Summary Generation
+- US38 – AI Scene Generation
+- US39 – Genre Reading Visualization
+- US40 – Personalized Notifications & Alerts
+- US41 – AI-Curated Reading Digest
+- US42 – Reading Streaks & Personalized Challenges
+- US43 – Adaptive Learning Recommendations
+- US46 – AI-Powered Content Moderation (also in Admin Epic)
+
+---
