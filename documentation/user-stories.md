@@ -155,7 +155,7 @@ As an Admin, I want to add and manage author and publisher information, so that 
 As a Manager, I want to view analytics on current trends and user preferences so that I can make data-driven business decisions.  
 
 **Back of the card:**  
-- System displays most purchased, most viewed, and top-rated books.  
+- System displays most viewed, and top-rated books.  
 - The manager can see user demographics.  
 - Graphs/charts showing trends over time.  
 - AI-driven insights on upcoming popular genres.  
@@ -176,27 +176,27 @@ As a user, I want to open and read a book in the app so that I can enjoy the con
 
 ---
 
-### User Story 15: Marking a Book as Read  
+### User Story 15: Automatic Marking a Book as Read  
 **Front of the card:**  
-As a user, I want to mark a book as "Read" so that I can keep track of books I have completed.  
+As a user, I want the system to automatically mark a book as "Read" when I finish reading.  
 
 **Back of the card:**  
-- A “Mark as Read” button must be visible on book details.  
-- Clicking updates the library status in Firestore.  
-- Appears in the “Books Read” section of the profile.  
-- Status can be changed back if needed.  
+- When the user reaches the last page of the book, its status is auto-updated to "Read" in Firestore.  
+- The book immediately appears in the “Books Read” section of the profile.  
+- The user can manually revert the status if marked incorrectly.  
+- A confirmation toast/notification is shown to inform the user.  
 
 ---
 
-### User Story 16: Marking a Book to Read in the Future  
+### User Story 16: Adding a Book to Wishlist 
 **Front of the card:**  
-As a user, I want to add a book to my "To Read" list so that I can plan future reading.  
+As a user, I want to add a book to my wishlist so that I can keep track of books I want to read in the future.  
 
 **Back of the card:**  
-- A “Save to To-Read List” button on the book detail page.  
-- Clicking saves to the user’s Firestore library.  
-- Accessible from the user profile/dashboard.  
-- The user can remove or update the status anytime.  
+- A “Add to Wishlist” button is available on the book detail page.  
+- Clicking saves the book to the user’s “Wishlist/To-Read” list in Firestore.  
+- The wishlist is accessible from the user’s profile/dashboard.  
+- User can remove or move a book from wishlist to "Currently Reading" or "Read" anytime.   
 
 ---
 
@@ -519,7 +519,7 @@ As a user, I want AI to suggest books outside my usual genres so that I can try 
 
 ---
 
-### User Story 44 – Session Persistence  
+### User Story 44 – Remember User  
 **Front of the card:**  
 As a user, I want a "Remember me" option so that I don’t need to log in every time I return to the app.  
 
@@ -649,5 +649,33 @@ As an admin, I want to send notifications about new releases, offers, or updates
 - Broadcast sent to all users.  
 - Users receive in-app and/or email notifications.  
 - Admin can schedule or cancel notifications.  
+
+---
+
+---
+
+### User Story 55 – Dark Mode & Font Customization  
+**Front of the card:**  
+As a user, I want to switch between dark/light mode and adjust font style/size so that reading is comfortable for my eyes. 
+
+**Back of the card:**  
+- Users can switch between light and dark themes anytime.
+- Font style (serif/sans-serif) and font size can be adjusted.
+- Settings are remembered across devices.
+- The default theme is light if no preference is set.  
+
+---
+
+---
+
+### User Story 56 – Audio Book Support
+**Front of the card:**  
+As a user, I want to listen to audiobooks so that I can enjoy books while multitasking or when reading isn’t possible. 
+
+**Back of the card:**  
+- Users can switch between reading and listening modes.
+- Audiobooks support play, pause, rewind, and speed control.
+- Progress syncs between audiobook and ebook (resume where you left off).
+- Available only if the book has an audiobook version.  
 
 ---
