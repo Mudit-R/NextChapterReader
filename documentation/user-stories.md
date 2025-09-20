@@ -519,7 +519,7 @@ As a user, I want AI to suggest books outside my usual genres so that I can try 
 
 ---
 
-### User Story 44 – Session Persistence  
+### User Story 44 – Remember User  
 **Front of the card:**  
 As a user, I want a "Remember me" option so that I don’t need to log in every time I return to the app.  
 
