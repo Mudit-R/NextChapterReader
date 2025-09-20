@@ -155,7 +155,7 @@ As an Admin, I want to add and manage author and publisher information, so that 
 As a Manager, I want to view analytics on current trends and user preferences so that I can make data-driven business decisions.  
 
 **Back of the card:**  
-- System displays most purchased, most viewed, and top-rated books.  
+- System displays most viewed, and top-rated books.  
 - The manager can see user demographics.  
 - Graphs/charts showing trends over time.  
 - AI-driven insights on upcoming popular genres.  
