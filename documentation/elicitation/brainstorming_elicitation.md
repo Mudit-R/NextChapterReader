@@ -76,7 +76,7 @@
 - Database selection (Firebase vs. MongoDB)
 
 **Decisions:**
-- 🌗 Light/Dark/Reading mode – Discussed (to refine later)
+- 🌗 Light/Dark mode – Discussed (to refine later)
 - ✅ UI/UX colour theme – Finalized: Light warm colours
 - ✅ Database selection – Finalized: Firebase (better adaptability)
 
