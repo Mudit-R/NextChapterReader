@@ -71,7 +71,7 @@
 ## Session 3 – UI/UX and Technical Decisions
 
 **Ideas Discussed:**
-- Light/Dark/Reading mode
+- Light/Dark mode
 - UI/UX colour theme (Reference: reading platforms)
 - Database selection (Firebase vs. MongoDB)
 
