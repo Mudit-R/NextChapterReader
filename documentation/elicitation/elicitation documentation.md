@@ -11,7 +11,7 @@
   - Survey respondents frequently mentioned frustration with fake PDFs, unsafe download links, wrong editions, and distracting ads
   - Student interview highlighted difficulty locating books in RC, long waiting lists, poor physical conditions, and need for one-click reservations
 
-#### Academic Staff
+#### Librarians & Academic Staff
 - **How Identified:** They are involved in the management of book inventories and circulation in both physical and digital formats, making them critical stakeholders
 - **Role & Needs:** Manage catalogues, book metadata, availability, and track circulation. Require a system that reduces manual record-keeping and ensures better accuracy of holdings
 - **Elicitation Evidence:**
@@ -25,9 +25,6 @@
 #### Authors & Publishers
 - **How Identified:** Directly connected to content creation and distribution, they ensure the availability of legitimate and high quality books.
 - **Role & Needs:** Ensure correct versions are available, manage copyrights, and publish content securely. They will require data analytics from the website to improve their publications.
-- **Elicitation Evidence:**
-  – The author mentioned need for increase in visibility online
-  – Transparent analytics to help authors in their creative decisions
 
 
 
@@ -121,14 +118,6 @@ All interviews also explored thoughts on AI, automation, and personalized readin
 #### Administration & Content Management
 - Admin should be able to add/update/delete books, manage reviews, monitor analytics, and track trends
 - **Elicitation Source:** Librarian interview (manual catalogue frustrations)
-  
-#### Accessibility Reading Modes
-- Dark mode and customizable font sizes to reduce eye strain.
-- Text-to-speech functionality to read books aloud for visually impaired users or
-multitaskers.
-- **Elicitation Source**: Survey responses highlighting issues like eye strain, difficulty
-with small fonts, and requests for audio support.
-
 
 ### Non-Functional Requirements (NFRs) Identified
 
