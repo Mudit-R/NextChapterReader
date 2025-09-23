@@ -19,6 +19,31 @@ The full audio interview is available here:
 [🎧 Listen to the interview](https://drive.google.com/file/d/1NAaN6Pwe80_DCqQnvOilGkRZEgvfQzwX/view?usp=drive_link)
 
 
+# Author Interview – For You (book by Jayasree Kalla) 
+
+As part of the requirements elicitation process, we conducted an interview with an author.  
+The interview aimed to understand challenges, opportunities, and expectations related to online book purchasing and reading platforms.  
+
+## Key Questions Asked  
+1. Do you think authors and publishers benefit from online book purchasing and reading platforms? If yes, how? If not, why?  
+2. As an author, what are the biggest challenges you face while publishing and creating awareness about your work?  
+3. From your perspective, what are the biggest problems readers face today when trying to discover or access books online?  
+4. What features on an online bookstore or reading platform would benefit you most as an author?  
+5. If you could suggest one new feature for an online bookstore or reading platform that does not currently exist, what would it be?  
+6. How do you think AI could play a role in online bookstores or libraries?  
+   - How can it help readers?  
+   - How can it assist authors?  
+7. What changes have you observed in the reading habits of readers over the last few years, especially with the rise of e-books and audiobooks?  
+8. Do you feel that digital platforms make it easier or harder for new authors to stand out? Why?  
+9. How important are reviews and ratings on online platforms for the success of your books?  
+10. What would make you more willing to collaborate with or publish on a new online bookstore/reading platform?  
+
+## Interview Recording  
+The full interview recording is available here:  
+
+[🎧 Listen to the interview](https://drive.google.com/file/d/18rNak5pa5OnZB_FA7hkMa4PJfdj3JM5Q/view?usp=sharing)  
+
+
 # Interviews from General Users
 
 ## Online Bookstore Interview Questions
