@@ -3,67 +3,63 @@ import { Link } from 'react-router-dom'
 
 function HeroSection() {
   return (
-    <section className="relative overflow-hidden bg-linear-to-br from-slate-900 via-purple-900 to-slate-900 dark:from-black dark:via-purple-950 dark:to-black px-4 py-24 md:py-32 transition-colors duration-300">
-      {/* Animated background elements */}
-      <div className="absolute inset-0 opacity-20">
-        <div className="absolute top-20 left-10 w-72 h-72 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl animate-blob"></div>
-        <div className="absolute top-40 right-10 w-72 h-72 bg-coral rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-2000"></div>
-        <div className="absolute bottom-20 left-1/2 w-72 h-72 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl animate-blob animation-delay-4000"></div>
-      </div>
+    <section className="bg-dark-gray dark:bg-white py-32 md:py-40">
+      <div className="max-w-7xl mx-auto px-8">
+        <div className="grid grid-cols-12 gap-8">
+          {/* Left Column - Main Content */}
+          <div className="col-span-12 md:col-span-8">
+            {/* Label */}
+            <div className="mb-12">
+              <span className="text-xs font-medium uppercase tracking-widest text-white dark:text-dark-gray border-b-2 border-white dark:border-dark-gray pb-2 inline-block">
+                AI-Powered Reading
+              </span>
+            </div>
 
-      <div className="max-w-7xl mx-auto relative">
-        <div className="text-center max-w-4xl mx-auto">
-          {/* Badge */}
-          <div className="inline-flex items-center space-x-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-2 mb-8">
-            <Sparkles className="w-4 h-4 text-yellow-400" />
-            <span className="text-sm text-white font-medium">AI-Powered Reading Experience</span>
-          </div>
+            {/* Main Heading - Swiss Style */}
+            <h1 className="text-6xl md:text-8xl lg:text-9xl text-white dark:text-dark-gray mb-12 leading-none tracking-tight">
+              Your Next
+              <br />
+              Chapter
+            </h1>
 
-          {/* Main Heading */}
-          <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight">
-            Your Next Chapter
-            <br />
-            <span className="text-transparent bg-clip-text bg-linear-to-r from-coral to-pink-400">
-              Starts Here
-            </span>
-          </h1>
+            {/* Description */}
+            <p className="text-lg md:text-xl text-white/70 dark:text-dark-gray/70 mb-16 max-w-2xl leading-relaxed font-light">
+              Discover a revolutionary online bookstore where AI meets literature. 
+              Explore thousands of books, get personalized recommendations, and enjoy 
+              an immersive reading experience.
+            </p>
 
-          {/* Description */}
-          <p className="text-xl md:text-2xl text-gray-300 mb-10 leading-relaxed">
-            Discover a revolutionary online bookstore where AI meets literature. 
-            Explore thousands of books, get personalized recommendations, and enjoy 
-            an immersive reading experience like never before.
-          </p>
-
-          {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link to="/books" className="group flex items-center space-x-2 bg-coral hover:bg-pink-500 text-white px-8 py-4 rounded-full font-semibold text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300">
-              <span>Explore Books</span>
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            {/* CTA Button - Swiss Style with Inversion Animation */}
+            <Link 
+              to="/books" 
+              className="group inline-flex items-center gap-3 bg-white dark:bg-dark-gray text-dark-gray dark:text-white px-8 py-4 text-sm font-medium uppercase tracking-widest border-2 border-white dark:border-dark-gray transition-all duration-300 hover:bg-dark-gray dark:hover:bg-white hover:text-white dark:hover:text-dark-gray overflow-hidden relative"
+            >
+              <span className="relative z-10 transition-colors duration-300">Explore Books</span>
+              <ArrowRight 
+                className="w-4 h-4 relative z-10 transition-all duration-300 -translate-x-5 opacity-0 group-hover:translate-x-0 group-hover:opacity-100" 
+              />
             </Link>
-            <a href="#about" className="flex items-center space-x-2 bg-white/10 backdrop-blur-sm hover:bg-white/20 text-white border border-white/30 px-8 py-4 rounded-full font-semibold text-lg transition-all duration-300">
-              <span>Learn More</span>
-            </a>
           </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-3 gap-8 mt-20 pt-12 border-t border-white/10">
-            <div>
-              <div className="text-3xl md:text-4xl font-bold text-white mb-2">10K+</div>
-              <div className="text-gray-400 text-sm md:text-base">Books</div>
-            </div>
-            <div>
-              <div className="text-3xl md:text-4xl font-bold text-white mb-2">50K+</div>
-              <div className="text-gray-400 text-sm md:text-base">Readers</div>
-            </div>
-            <div>
-              <div className="text-3xl md:text-4xl font-bold text-white mb-2">4.8★</div>
-              <div className="text-gray-400 text-sm md:text-base">Rating</div>
+          {/* Right Column - Stats Grid */}
+          <div className="col-span-12 md:col-span-4 border-t-2 border-white dark:border-dark-gray pt-12 md:pt-0 md:border-t-0 md:border-l-2 md:pl-12">
+            <div className="space-y-16">
+              <div>
+                <div className="text-6xl md:text-7xl text-white dark:text-dark-gray mb-4 leading-none">10K+</div>
+                <div className="text-xs font-medium uppercase tracking-widest text-white/60 dark:text-dark-gray/60">Books</div>
+              </div>
+              <div>
+                <div className="text-6xl md:text-7xl text-white dark:text-dark-gray mb-4 leading-none">50K+</div>
+                <div className="text-xs font-medium uppercase tracking-widest text-white/60 dark:text-dark-gray/60">Readers</div>
+              </div>
+              <div>
+                <div className="text-6xl md:text-7xl text-white dark:text-dark-gray mb-4 leading-none">4.8</div>
+                <div className="text-xs font-medium uppercase tracking-widest text-white/60 dark:text-dark-gray/60">Rating</div>
+              </div>
             </div>
           </div>
         </div>
       </div>
-
     </section>
   )
 }
