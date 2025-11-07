@@ -1,0 +1,250 @@
+import { useState } from 'react'
+import { Link } from 'react-router-dom'
+import Header from '../components/Header'
+import { useTheme } from '../contexts/ThemeContext'
+import { ArrowRight, Eye, EyeOff } from 'lucide-react'
+
+function SignUpPage() {
+  const { isDark } = useTheme()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+
+  const handleSubmit = (e) => {
+    e.preventDefault()
+    // Handle sign up logic here
+    console.log('Sign up:', { email, password, confirmPassword })
+  }
+
+  const handleGoogleSignUp = () => {
+    // Handle Google sign up
+    console.log('Google sign up')
+  }
+
+  const handleAppleSignUp = () => {
+    // Handle Apple sign up
+    console.log('Apple sign up')
+  }
+
+  return (
+    <div className="min-h-screen bg-dark-gray dark:bg-white">
+      <Header />
+      
+      {/* Sign Up Section */}
+      <section className="bg-dark-gray dark:bg-white py-24 md:py-32">
+        <div className="max-w-7xl mx-auto px-8">
+          <div className="grid grid-cols-12 gap-8 md:gap-16">
+            {/* Left Column - Heading */}
+            <div className="col-span-12 md:col-span-4">
+              <div className="mb-8">
+                <span className="text-xs font-medium uppercase tracking-widest text-white dark:text-dark-gray border-b-2 border-white dark:border-dark-gray pb-2 inline-block">
+                  Get Started
+                </span>
+              </div>
+              <h1 className="text-5xl md:text-6xl lg:text-7xl text-white dark:text-dark-gray mb-8 leading-none">
+                Sign Up
+              </h1>
+              <p className="text-lg text-white/70 dark:text-dark-gray/70 leading-relaxed font-light mb-8">
+                Create your account and start your reading journey with NextChapter.
+              </p>
+              
+              {/* Sign In Link */}
+              <div>
+                <p className="text-sm text-white/70 dark:text-dark-gray/70 font-light mb-2">
+                  Already have an account?
+                </p>
+                <Link 
+                  to="/sign-in" 
+                  className="text-sm text-white dark:text-dark-gray font-medium uppercase tracking-widest hover:opacity-60 transition-opacity inline-flex items-center gap-2"
+                >
+                  Sign In
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
+            </div>
+
+            {/* Right Column - Form */}
+            <div className="col-span-12 md:col-span-8 border-t-2 border-white dark:border-dark-gray pt-8 md:pt-0 md:border-t-0 md:border-l-2 md:pl-12 flex items-center justify-center">
+              <div className="max-w-md w-full">
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Email Field */}
+                  <div>
+                    <label 
+                      htmlFor="email" 
+                      className="block text-xs font-medium uppercase tracking-widest text-white dark:text-dark-gray mb-3"
+                    >
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      id="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      className="w-full bg-transparent border-2 border-white dark:border-dark-gray px-6 py-4 text-white dark:text-dark-gray placeholder-white/40 dark:placeholder-dark-gray/40 focus:outline-none focus:border-white dark:focus:border-dark-gray transition-colors font-light"
+                      placeholder="your.email@example.com"
+                    />
+                  </div>
+
+                  {/* Password Field */}
+                  <div>
+                    <label 
+                      htmlFor="password" 
+                      className="block text-xs font-medium uppercase tracking-widest text-white dark:text-dark-gray mb-3"
+                    >
+                      Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        id="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        className="w-full bg-transparent border-2 border-white dark:border-dark-gray px-6 py-4 pr-12 text-white dark:text-dark-gray placeholder-white/40 dark:placeholder-dark-gray/40 focus:outline-none focus:border-white dark:focus:border-dark-gray transition-colors font-light"
+                        placeholder="Enter your password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-white/60 dark:text-dark-gray/60 hover:text-white dark:hover:text-dark-gray transition-colors"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="w-5 h-5" />
+                        ) : (
+                          <Eye className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Confirm Password Field */}
+                  <div>
+                    <label 
+                      htmlFor="confirmPassword" 
+                      className="block text-xs font-medium uppercase tracking-widest text-white dark:text-dark-gray mb-3"
+                    >
+                      Confirm Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showConfirmPassword ? "text" : "password"}
+                        id="confirmPassword"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        required
+                        className="w-full bg-transparent border-2 border-white dark:border-dark-gray px-6 py-4 pr-12 text-white dark:text-dark-gray placeholder-white/40 dark:placeholder-dark-gray/40 focus:outline-none focus:border-white dark:focus:border-dark-gray transition-colors font-light"
+                        placeholder="Confirm your password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-white/60 dark:text-dark-gray/60 hover:text-white dark:hover:text-dark-gray transition-colors"
+                        aria-label={showConfirmPassword ? "Hide password" : "Show password"}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="w-5 h-5" />
+                        ) : (
+                          <Eye className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Sign Up Button */}
+                  <button
+                    type="submit"
+                    className="group w-full inline-flex items-center justify-center gap-3 bg-white dark:bg-dark-gray text-dark-gray dark:text-white px-8 py-4 text-sm font-medium uppercase tracking-widest border-2 border-white dark:border-dark-gray transition-all duration-300 hover:bg-dark-gray dark:hover:bg-white hover:text-white dark:hover:text-dark-gray overflow-hidden relative"
+                  >
+                    <span className="relative z-10 transition-colors duration-300">Sign Up</span>
+                    <ArrowRight 
+                      className="w-4 h-4 relative z-10 transition-all duration-300 -translate-x-5 opacity-0 group-hover:translate-x-0 group-hover:opacity-100" 
+                    />
+                  </button>
+                </form>
+
+                {/* Divider */}
+                <div className="flex items-center gap-4 my-8">
+                  <div className="flex-1 h-px bg-white/20 dark:bg-dark-gray/20"></div>
+                  <span className="text-xs font-medium uppercase tracking-widest text-white/60 dark:text-dark-gray/60">
+                    Or
+                  </span>
+                  <div className="flex-1 h-px bg-white/20 dark:bg-dark-gray/20"></div>
+                </div>
+
+                {/* Social Sign Up Buttons */}
+                <div className="space-y-4">
+                  {/* Google Sign Up */}
+                  <button
+                    onClick={handleGoogleSignUp}
+                    className="w-full inline-flex items-center justify-center gap-3 bg-transparent border-2 border-white dark:border-dark-gray text-white dark:text-dark-gray px-8 py-4 text-sm font-medium uppercase tracking-widest transition-all duration-300 hover:bg-white/10 dark:hover:bg-dark-gray/10"
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                    </svg>
+                    <span>Continue with Google</span>
+                  </button>
+
+                  {/* Apple Sign Up */}
+                  <button
+                    onClick={handleAppleSignUp}
+                    className="w-full inline-flex items-center justify-center gap-3 bg-transparent border-2 border-white dark:border-dark-gray text-white dark:text-dark-gray px-8 py-4 text-sm font-medium uppercase tracking-widest transition-all duration-300 hover:bg-white/10 dark:hover:bg-dark-gray/10"
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>
+                    </svg>
+                    <span>Continue with Apple</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-dark-gray dark:bg-white border-t-2 border-white dark:border-dark-gray py-16">
+        <div className="max-w-7xl mx-auto px-8">
+          <div className="grid grid-cols-12 gap-8">
+            <div className="col-span-12 md:col-span-6">
+              <div className="text-4xl text-white dark:text-dark-gray mb-8 leading-none">
+                NextChapter
+              </div>
+              <p className="text-sm text-white/60 dark:text-dark-gray/60 font-light uppercase tracking-widest max-w-md">
+                Redefining digital reading with AI-powered intelligence
+              </p>
+            </div>
+            <div className="col-span-12 md:col-span-6 border-t-2 border-white dark:border-dark-gray pt-8 md:pt-0 md:border-t-0 md:border-l-2 md:pl-12">
+              <div className="grid grid-cols-2 gap-8 mb-8">
+                <Link to="/" className="text-xs text-white dark:text-dark-gray font-medium uppercase tracking-widest hover:opacity-60 transition-opacity">
+                  About
+                </Link>
+                <Link to="/books" className="text-xs text-white dark:text-dark-gray font-medium uppercase tracking-widest hover:opacity-60 transition-opacity">
+                  Books
+                </Link>
+                <Link to="/subscription" className="text-xs text-white dark:text-dark-gray font-medium uppercase tracking-widest hover:opacity-60 transition-opacity">
+                  Subscription
+                </Link>
+                <Link to="#" className="text-xs text-white dark:text-dark-gray font-medium uppercase tracking-widest hover:opacity-60 transition-opacity">
+                  Privacy
+                </Link>
+              </div>
+              <div className="text-xs text-white/40 dark:text-dark-gray/40 font-light uppercase tracking-widest">
+                © 2025 NextChapter. All rights reserved.
+              </div>
+            </div>
+          </div>
+        </div>
+      </footer>
+    </div>
+  )
+}
+
+export default SignUpPage
+

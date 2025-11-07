@@ -178,16 +178,28 @@ function Header() {
               Home
             </Link>
             <LibraryDropdown location={location} />
-            <button className="bg-dark-gray dark:bg-white text-white dark:text-dark-gray px-6 py-2 text-xs font-medium uppercase tracking-widest hover:opacity-80 transition-opacity">
+            <Link 
+              to="/subscription" 
+              className={`bg-dark-gray dark:bg-white text-white dark:text-dark-gray px-6 py-2 text-xs font-medium uppercase tracking-widest hover:opacity-80 transition-opacity ${
+                location.pathname === '/subscription' ? 'opacity-100' : ''
+              }`}
+            >
               Subscription
-            </button>
+            </Link>
           </nav>
 
           {/* Right Side Actions */}
           <div className="hidden md:flex items-center justify-end col-span-3 gap-8">
-            <button className="text-xs text-dark-gray dark:text-white font-medium uppercase tracking-widest hover:opacity-60 transition-opacity">
+            <Link 
+              to="/sign-in" 
+              className={`text-xs font-medium uppercase tracking-widest transition-opacity hover:opacity-60 ${
+                location.pathname === '/sign-in' 
+                  ? 'text-dark-gray dark:text-white opacity-100' 
+                  : 'text-dark-gray dark:text-white'
+              }`}
+            >
               Sign In
-            </button>
+            </Link>
             
             {/* Dark Mode Toggle */}
             <button 
@@ -237,13 +249,19 @@ function Header() {
                 Home
               </Link>
               <LibraryDropdownMobile />
-              <button className="w-full bg-coral hover:bg-pink-500 text-white px-6 py-2.5 rounded-full font-medium transition-all text-left">
+              <Link 
+                to="/subscription" 
+                className="w-full bg-coral hover:bg-pink-500 text-white px-6 py-2.5 rounded-full font-medium transition-all text-left"
+              >
                 Subscription
-              </button>
+              </Link>
               <div className="pt-2">
-                <button className="w-full text-left text-dark-gray/70 dark:text-white/70 hover:text-coral font-medium py-2 transition-colors">
+                <Link 
+                  to="/sign-in" 
+                  className="w-full text-left text-dark-gray/70 dark:text-white/70 hover:text-coral font-medium py-2 transition-colors"
+                >
                   Sign In
-                </button>
+                </Link>
               </div>
             </nav>
           </div>
