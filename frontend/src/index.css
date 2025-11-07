@@ -1,8 +1,29 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Merriweather:wght@300;400;700;900&display=swap');
+
+@theme {
+  --color-cream: #FDF6EB;
+  --color-peach: #F5E6D3;
+  --color-coral: #D47249;
+  --color-dark-coral: #BF5F3B;
+  
+  --font-family-merriweather: 'Merriweather', serif;
+  
+  --animate-fade-in: fadeIn 0.3s ease-in-out;
+  --animate-blob: blob 7s infinite;
+}
+
+@keyframes fadeIn {
+  0% { opacity: 0; transform: translateY(-10px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes blob {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -50px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.9); }
+}
 
 body {
   margin: 0;
