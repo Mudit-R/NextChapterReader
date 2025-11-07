@@ -1,15 +1,45 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import Header from '../components/Header'
+import { useAuth } from '../contexts/AuthContext'
 import { ArrowRight } from 'lucide-react'
 
 function ForgotPasswordPage() {
+  const { resetPassword } = useAuth()
   const [email, setEmail] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    // Handle reset password logic here
-    console.log('Reset password for:', email)
+    setError('')
+    setSuccess('')
+    
+    // Trim email
+    const trimmedEmail = email.trim().toLowerCase()
+    
+    if (!trimmedEmail) {
+      setError('Email is required.')
+      return
+    }
+    
+    setLoading(true)
+
+    try {
+      const { data, error: resetError } = await resetPassword(trimmedEmail)
+      
+      if (resetError) {
+        setError(resetError.message || 'Failed to send password reset email. Please try again.')
+      } else {
+        setSuccess('Password reset email sent! Please check your inbox and follow the instructions to reset your password.')
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.')
+      console.error('Password reset error:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -40,6 +70,20 @@ function ForgotPasswordPage() {
             {/* Right Column - Form */}
             <div className="col-span-12 md:col-span-8 border-t-2 border-white dark:border-dark-gray pt-8 md:pt-0 md:border-t-0 md:border-l-2 md:pl-12 flex items-center justify-center">
               <div className="max-w-md w-full">
+                {/* Error Message */}
+                {error && (
+                  <div className="mb-6 p-4 bg-red-500/10 border-2 border-red-500 text-red-500 text-sm font-light">
+                    {error}
+                  </div>
+                )}
+                
+                {/* Success Message */}
+                {success && (
+                  <div className="mb-6 p-4 bg-green-500/10 border-2 border-green-500 text-green-500 text-sm font-light">
+                    {success}
+                  </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {/* Email Field */}
                   <div>
@@ -63,12 +107,17 @@ function ForgotPasswordPage() {
                   {/* Reset Password Button */}
                   <button
                     type="submit"
-                    className="group w-full inline-flex items-center justify-center gap-3 bg-white dark:bg-dark-gray text-dark-gray dark:text-white px-8 py-4 text-sm font-medium uppercase tracking-widest border-2 border-white dark:border-dark-gray transition-all duration-300 hover:bg-dark-gray dark:hover:bg-white hover:text-white dark:hover:text-dark-gray overflow-hidden relative"
+                    disabled={loading}
+                    className="group w-full inline-flex items-center justify-center gap-3 bg-white dark:bg-dark-gray text-dark-gray dark:text-white px-8 py-4 text-sm font-medium uppercase tracking-widest border-2 border-white dark:border-dark-gray transition-all duration-300 hover:bg-dark-gray dark:hover:bg-white hover:text-white dark:hover:text-dark-gray overflow-hidden relative disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <span className="relative z-10 transition-colors duration-300">Reset Password</span>
-                    <ArrowRight 
-                      className="w-4 h-4 relative z-10 transition-all duration-300 -translate-x-5 opacity-0 group-hover:translate-x-0 group-hover:opacity-100" 
-                    />
+                    <span className="relative z-10 transition-colors duration-300">
+                      {loading ? 'Sending...' : 'Reset Password'}
+                    </span>
+                    {!loading && (
+                      <ArrowRight 
+                        className="w-4 h-4 relative z-10 transition-all duration-300 -translate-x-5 opacity-0 group-hover:translate-x-0 group-hover:opacity-100" 
+                      />
+                    )}
                   </button>
                 </form>
 

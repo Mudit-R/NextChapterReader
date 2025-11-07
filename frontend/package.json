@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@esbuild/win32-x64": "^0.25.12",
     "@supabase/supabase-js": "^2.49.2",
     "framer-motion": "^12.23.16",
     "lucide-react": "^0.553.0",

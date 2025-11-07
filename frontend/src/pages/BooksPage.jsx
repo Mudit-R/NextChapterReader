@@ -11,6 +11,30 @@ function BooksPage() {
   const [searchParams] = useSearchParams()
   const libraryFilter = searchParams.get('library') || 'all'
 
+  // Clean up hash from URL (OAuth callback)
+  useEffect(() => {
+    const removeHash = () => {
+      if (window.location.hash) {
+        // Remove hash from URL using replaceState
+        const url = window.location.pathname + window.location.search
+        window.history.replaceState(null, '', url)
+        
+        // Also try using replace as fallback
+        if (window.location.hash) {
+          window.location.replace(url)
+        }
+      }
+    }
+    
+    // Run immediately
+    removeHash()
+    
+    // Also run after a short delay to catch any late hash additions
+    const timeout = setTimeout(removeHash, 50)
+    
+    return () => clearTimeout(timeout)
+  }, [])
+
   useEffect(() => {
     loadBooks()
   }, [])

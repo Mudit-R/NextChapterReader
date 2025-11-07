@@ -1,31 +1,156 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import { useTheme } from '../contexts/ThemeContext'
+import { useAuth } from '../contexts/AuthContext'
 import { ArrowRight, Eye, EyeOff } from 'lucide-react'
 
 function SignUpPage() {
   const { isDark } = useTheme()
+  const { user, loading: authLoading, signUp, signInWithOAuth } = useAuth()
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
-  const handleSubmit = (e) => {
+  // Redirect if already logged in
+  useEffect(() => {
+    console.log('📊 SignUpPage - authLoading:', authLoading, 'user:', user?.email || 'none')
+    if (!authLoading && user) {
+      console.log('👤 User detected on sign-up page, redirecting to /books')
+      // Use window.location for a hard redirect to ensure state is updated
+      window.location.href = '/books'
+    }
+  }, [user, authLoading])
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-dark-gray dark:bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-coral mb-4"></div>
+          <p className="text-white dark:text-dark-gray">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show loading during redirect
+  if (user) {
+    return (
+      <div className="min-h-screen bg-dark-gray dark:bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-coral mb-4"></div>
+          <p className="text-white dark:text-dark-gray">Redirecting...</p>
+        </div>
+      </div>
+    )
+  }
+
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    // Handle sign up logic here
-    console.log('Sign up:', { email, password, confirmPassword })
+    setError('')
+    setSuccess('')
+
+    // Trim and validate email
+    const trimmedEmail = email.trim().toLowerCase()
+    
+    if (!trimmedEmail) {
+      setError('Email is required.')
+      return
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(trimmedEmail)) {
+      setError('Please enter a valid email address.')
+      return
+    }
+
+    // Validation
+    if (password !== confirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
+
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters long.')
+      return
+    }
+
+    setLoading(true)
+
+    try {
+      const { data, error: signUpError } = await signUp(trimmedEmail, password)
+      
+      if (signUpError) {
+        // Provide more user-friendly error messages
+        let errorMessage = signUpError.message || 'Failed to create account. Please try again.'
+        
+        if (signUpError.message?.includes('already registered') || signUpError.message?.includes('already exists')) {
+          errorMessage = 'This email is already registered. Please sign in instead or use a different email.'
+        } else if (signUpError.message?.includes('Invalid email')) {
+          errorMessage = 'Please enter a valid email address.'
+        } else if (signUpError.message?.includes('Password')) {
+          errorMessage = 'Password does not meet requirements. Please use a stronger password.'
+        }
+        
+        setError(errorMessage)
+      } else {
+        // Check if email confirmation is required
+        if (data.user && !data.session) {
+          setSuccess('Account created! Please check your email to confirm your account before signing in.')
+        } else if (data.user && data.session) {
+          // User is automatically signed in, redirect immediately
+          setSuccess('Account created successfully! Redirecting...')
+          navigate('/books', { replace: true })
+        }
+      }
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.')
+      console.error('Sign up error:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleGoogleSignUp = () => {
-    // Handle Google sign up
-    console.log('Google sign up')
+  const handleGoogleSignUp = async () => {
+    setError('')
+    setLoading(true)
+    try {
+      const { error: oauthError } = await signInWithOAuth('google')
+      if (oauthError) {
+        setError(oauthError.message || 'Failed to sign up with Google.')
+        setLoading(false)
+      }
+      // OAuth will redirect, so we don't need to handle success here
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.')
+      setLoading(false)
+      console.error('Google sign up error:', err)
+    }
   }
 
-  const handleAppleSignUp = () => {
-    // Handle Apple sign up
-    console.log('Apple sign up')
+  const handleAppleSignUp = async () => {
+    setError('')
+    setLoading(true)
+    try {
+      const { error: oauthError } = await signInWithOAuth('apple')
+      if (oauthError) {
+        setError(oauthError.message || 'Failed to sign up with Apple.')
+        setLoading(false)
+      }
+      // OAuth will redirect, so we don't need to handle success here
+    } catch (err) {
+      setError('An unexpected error occurred. Please try again.')
+      setLoading(false)
+      console.error('Apple sign up error:', err)
+    }
   }
 
   return (
@@ -68,6 +193,20 @@ function SignUpPage() {
             {/* Right Column - Form */}
             <div className="col-span-12 md:col-span-8 border-t-2 border-white dark:border-dark-gray pt-8 md:pt-0 md:border-t-0 md:border-l-2 md:pl-12 flex items-center justify-center">
               <div className="max-w-md w-full">
+                {/* Error Message */}
+                {error && (
+                  <div className="mb-6 p-4 bg-red-500/10 border-2 border-red-500 text-red-500 text-sm font-light">
+                    {error}
+                  </div>
+                )}
+                
+                {/* Success Message */}
+                {success && (
+                  <div className="mb-6 p-4 bg-green-500/10 border-2 border-green-500 text-green-500 text-sm font-light">
+                    {success}
+                  </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {/* Email Field */}
                   <div>
@@ -157,12 +296,17 @@ function SignUpPage() {
                   {/* Sign Up Button */}
                   <button
                     type="submit"
-                    className="group w-full inline-flex items-center justify-center gap-3 bg-white dark:bg-dark-gray text-dark-gray dark:text-white px-8 py-4 text-sm font-medium uppercase tracking-widest border-2 border-white dark:border-dark-gray transition-all duration-300 hover:bg-dark-gray dark:hover:bg-white hover:text-white dark:hover:text-dark-gray overflow-hidden relative"
+                    disabled={loading}
+                    className="group w-full inline-flex items-center justify-center gap-3 bg-white dark:bg-dark-gray text-dark-gray dark:text-white px-8 py-4 text-sm font-medium uppercase tracking-widest border-2 border-white dark:border-dark-gray transition-all duration-300 hover:bg-dark-gray dark:hover:bg-white hover:text-white dark:hover:text-dark-gray overflow-hidden relative disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <span className="relative z-10 transition-colors duration-300">Sign Up</span>
-                    <ArrowRight 
-                      className="w-4 h-4 relative z-10 transition-all duration-300 -translate-x-5 opacity-0 group-hover:translate-x-0 group-hover:opacity-100" 
-                    />
+                    <span className="relative z-10 transition-colors duration-300">
+                      {loading ? 'Creating Account...' : 'Sign Up'}
+                    </span>
+                    {!loading && (
+                      <ArrowRight 
+                        className="w-4 h-4 relative z-10 transition-all duration-300 -translate-x-5 opacity-0 group-hover:translate-x-0 group-hover:opacity-100" 
+                      />
+                    )}
                   </button>
                 </form>
 
@@ -180,7 +324,8 @@ function SignUpPage() {
                   {/* Google Sign Up */}
                   <button
                     onClick={handleGoogleSignUp}
-                    className="w-full inline-flex items-center justify-center gap-3 bg-transparent border-2 border-white dark:border-dark-gray text-white dark:text-dark-gray px-8 py-4 text-sm font-medium uppercase tracking-widest transition-all duration-300 hover:bg-white/10 dark:hover:bg-dark-gray/10"
+                    disabled={loading}
+                    className="w-full inline-flex items-center justify-center gap-3 bg-transparent border-2 border-white dark:border-dark-gray text-white dark:text-dark-gray px-8 py-4 text-sm font-medium uppercase tracking-widest transition-all duration-300 hover:bg-white/10 dark:hover:bg-dark-gray/10 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -194,7 +339,8 @@ function SignUpPage() {
                   {/* Apple Sign Up */}
                   <button
                     onClick={handleAppleSignUp}
-                    className="w-full inline-flex items-center justify-center gap-3 bg-transparent border-2 border-white dark:border-dark-gray text-white dark:text-dark-gray px-8 py-4 text-sm font-medium uppercase tracking-widest transition-all duration-300 hover:bg-white/10 dark:hover:bg-dark-gray/10"
+                    disabled={loading}
+                    className="w-full inline-flex items-center justify-center gap-3 bg-transparent border-2 border-white dark:border-dark-gray text-white dark:text-dark-gray px-8 py-4 text-sm font-medium uppercase tracking-widest transition-all duration-300 hover:bg-white/10 dark:hover:bg-dark-gray/10 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09l.01-.01zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z"/>

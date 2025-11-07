@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Link, useLocation, useSearchParams, useNavigate } from 'react-router-dom'
-import { Menu, X, Moon, Sun, ChevronDown } from 'lucide-react'
+import { Menu, X, Moon, Sun, ChevronDown, LogOut, User, UserCircle } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
+import { useAuth } from '../contexts/AuthContext'
 
 function LibraryDropdown({ location }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -152,10 +153,91 @@ function LibraryDropdownMobile() {
   )
 }
 
+function ProfileDropdown({ user, onSignOut }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const location = useLocation()
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center justify-center w-10 h-10 rounded-full border-2 border-dark-gray dark:border-white hover:opacity-80 transition-opacity"
+        aria-label="User profile menu"
+      >
+        <User className="w-5 h-5 text-dark-gray dark:text-white" />
+      </button>
+      {isOpen && (
+        <>
+          <div 
+            className="fixed inset-0 z-10 bg-dark-gray/5 dark:bg-dark-gray/20"
+            onClick={() => setIsOpen(false)}
+            style={{ 
+              animation: 'fadeIn 0.15s ease-out',
+            }}
+          />
+          <div 
+            className="absolute top-full right-0 mt-2 w-56 bg-white dark:bg-dark-gray border-2 border-dark-gray dark:border-white z-20"
+            style={{ 
+              animation: 'slideDown 0.2s ease-out',
+              transformOrigin: 'top right',
+            }}
+          >
+            <div className="px-4 py-3 border-b-2 border-dark-gray dark:border-white">
+              <div className="flex items-center gap-2">
+                <UserCircle className="w-5 h-5 text-dark-gray dark:text-white" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium uppercase tracking-widest text-dark-gray dark:text-white truncate">
+                    {user?.email || 'User'}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="py-1">
+              <Link
+                to="/profile"
+                onClick={() => setIsOpen(false)}
+                className={`flex items-center gap-3 w-full text-left px-4 py-3 text-xs font-medium uppercase tracking-widest transition-colors duration-200 ease-out cursor-pointer ${
+                  location.pathname === '/profile'
+                    ? 'bg-dark-gray dark:bg-white text-white dark:text-dark-gray'
+                    : 'text-dark-gray dark:text-white hover:bg-dark-gray/5 dark:hover:bg-white/5'
+                }`}
+              >
+                <User className="w-4 h-4" />
+                <span>User Profile</span>
+              </Link>
+              <button
+                onClick={() => {
+                  setIsOpen(false)
+                  onSignOut()
+                }}
+                className="flex items-center gap-3 w-full text-left px-4 py-3 text-xs font-medium uppercase tracking-widest text-dark-gray dark:text-white hover:bg-dark-gray/5 dark:hover:bg-white/5 transition-colors duration-200 ease-out cursor-pointer border-t-2 border-dark-gray dark:border-white"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Logout</span>
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const { isDark, toggleTheme } = useTheme()
+  const { user, signOut } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
+
+  const handleSignOut = async () => {
+    const { error } = await signOut()
+    if (error) {
+      console.error('Sign out error:', error)
+    }
+    // Navigation handled by SIGNED_OUT event in AuthContext
+    setIsMenuOpen(false)
+  }
 
   return (
     <header className="bg-white dark:bg-dark-gray border-b border-dark-gray dark:border-white sticky top-0 z-50">
@@ -190,16 +272,20 @@ function Header() {
 
           {/* Right Side Actions */}
           <div className="hidden md:flex items-center justify-end col-span-3 gap-8">
-            <Link 
-              to="/sign-in" 
-              className={`text-xs font-medium uppercase tracking-widest transition-opacity hover:opacity-60 ${
-                location.pathname === '/sign-in' 
-                  ? 'text-dark-gray dark:text-white opacity-100' 
-                  : 'text-dark-gray dark:text-white'
-              }`}
-            >
-              Sign In
-            </Link>
+            {user ? (
+              <ProfileDropdown user={user} onSignOut={handleSignOut} />
+            ) : (
+              <Link 
+                to="/sign-in" 
+                className={`text-xs font-medium uppercase tracking-widest transition-opacity hover:opacity-60 ${
+                  location.pathname === '/sign-in' 
+                    ? 'text-dark-gray dark:text-white opacity-100' 
+                    : 'text-dark-gray dark:text-white'
+                }`}
+              >
+                Sign In
+              </Link>
+            )}
             
             {/* Dark Mode Toggle */}
             <button 
@@ -256,12 +342,42 @@ function Header() {
                 Subscription
               </Link>
               <div className="pt-2">
-                <Link 
-                  to="/sign-in" 
-                  className="w-full text-left text-dark-gray/70 dark:text-white/70 hover:text-coral font-medium py-2 transition-colors"
-                >
-                  Sign In
-                </Link>
+                {user ? (
+                  <>
+                    <div className="px-4 py-2 text-sm text-dark-gray/70 dark:text-white/70 border-b border-dark-gray/20 dark:border-white/20 mb-2">
+                      <div className="flex items-center gap-2 mb-1">
+                        <UserCircle className="w-5 h-5" />
+                        <span className="font-medium truncate">{user.email}</span>
+                      </div>
+                    </div>
+                    <Link
+                      to="/profile"
+                      onClick={() => setIsMenuOpen(false)}
+                      className={`w-full text-left font-medium py-2 transition-colors flex items-center gap-2 ${
+                        location.pathname === '/profile'
+                          ? 'text-coral'
+                          : 'text-dark-gray/70 dark:text-white/70 hover:text-coral'
+                      }`}
+                    >
+                      <User className="w-4 h-4" />
+                      User Profile
+                    </Link>
+                    <button
+                      onClick={handleSignOut}
+                      className="w-full text-left text-dark-gray/70 dark:text-white/70 hover:text-coral font-medium py-2 transition-colors flex items-center gap-2"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Logout
+                    </button>
+                  </>
+                ) : (
+                  <Link 
+                    to="/sign-in" 
+                    className="w-full text-left text-dark-gray/70 dark:text-white/70 hover:text-coral font-medium py-2 transition-colors"
+                  >
+                    Sign In
+                  </Link>
+                )}
               </div>
             </nav>
           </div>

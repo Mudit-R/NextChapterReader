@@ -5,25 +5,86 @@ import SubscriptionPage from './pages/SubscriptionPage'
 import SignInPage from './pages/SignInPage'
 import SignUpPage from './pages/SignUpPage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
+import ProfilePage from './pages/ProfilePage'
 import Gallery from './components/Gallery'
 import GalleryLocal from './components/GalleryLocal'
 import Reader from './components/Reader'
 import ReaderLocal from './components/ReaderLocal'
+import OAuthCallbackHandler from './components/OAuthCallbackHandler'
+import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
   return (
-    <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/books" element={<BooksPage />} />
-      <Route path="/subscription" element={<SubscriptionPage />} />
-      <Route path="/sign-in" element={<SignInPage />} />
-      <Route path="/sign-up" element={<SignUpPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/gallery" element={<Gallery />} />
-      <Route path="/gallery-local" element={<GalleryLocal />} />
-      <Route path="/reader" element={<Reader />} />
-      <Route path="/reader-local" element={<ReaderLocal />} />
-    </Routes>
+    <>
+      <OAuthCallbackHandler />
+      <Routes>
+        {/* Public routes */}
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/sign-in" element={<SignInPage />} />
+        <Route path="/sign-up" element={<SignUpPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        
+        {/* Protected routes - require authentication */}
+        <Route 
+          path="/books" 
+          element={
+            <ProtectedRoute>
+              <BooksPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/subscription" 
+          element={
+            <ProtectedRoute>
+              <SubscriptionPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/profile" 
+          element={
+            <ProtectedRoute>
+              <ProfilePage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/gallery" 
+          element={
+            <ProtectedRoute>
+              <Gallery />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/gallery-local" 
+          element={
+            <ProtectedRoute>
+              <GalleryLocal />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/reader" 
+          element={
+            <ProtectedRoute>
+              <Reader />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/reader-local" 
+          element={
+            <ProtectedRoute>
+              <ReaderLocal />
+            </ProtectedRoute>
+          } 
+        />
+      </Routes>
+    </>
   )
 }
 
