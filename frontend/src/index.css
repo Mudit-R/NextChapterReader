@@ -14,6 +14,13 @@
   --animate-blob: blob 7s infinite;
 }
 
+/* Enable dark mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+  }
+}
+
 @keyframes fadeIn {
   0% { opacity: 0; transform: translateY(-10px); }
   100% { opacity: 1; transform: translateY(0); }

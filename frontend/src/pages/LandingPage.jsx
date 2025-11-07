@@ -37,17 +37,17 @@ function LandingPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white">
+    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-gray-900 dark:to-gray-800 transition-colors duration-300">
       <Header />
       <HeroSection />
       
       {/* About Section */}
       <section className="max-w-7xl mx-auto px-4 py-20">
         <div className="text-center max-w-3xl mx-auto">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
             About NextChapter
           </h2>
-          <p className="text-lg text-gray-600 leading-relaxed">
+          <p className="text-lg text-gray-600 dark:text-gray-300 leading-relaxed">
             NextChapter is more than just an online bookstore—it's a revolutionary platform that redefines 
             digital reading. We combine cutting-edge AI technology with a beautifully designed interface 
             to create an unparalleled reading experience. Discover, purchase, and read books with 
@@ -58,12 +58,12 @@ function LandingPage() {
       </section>
 
       {/* Features Section */}
-      <section className="max-w-7xl mx-auto px-4 py-20 bg-white">
+      <section className="max-w-7xl mx-auto px-4 py-20 bg-white dark:bg-gray-900 transition-colors duration-300">
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
             Powerful Features
           </h2>
-          <p className="text-lg text-gray-600">
+          <p className="text-lg text-gray-600 dark:text-gray-300">
             Everything you need for the perfect reading journey
           </p>
         </div>
@@ -72,15 +72,15 @@ function LandingPage() {
           {features.map((feature, index) => (
             <div 
               key={index}
-              className="group p-8 rounded-2xl border border-gray-200 hover:border-coral hover:shadow-lg transition-all duration-300"
+              className="group p-8 rounded-2xl border border-gray-200 dark:border-gray-700 hover:border-coral dark:hover:border-coral hover:shadow-lg dark:bg-gray-800 transition-all duration-300"
             >
               <div className="text-coral mb-4 group-hover:scale-110 transition-transform duration-300">
                 {feature.icon}
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-3">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-3">
                 {feature.title}
               </h3>
-              <p className="text-gray-600 leading-relaxed">
+              <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
                 {feature.description}
               </p>
             </div>
@@ -93,15 +93,15 @@ function LandingPage() {
         <div className="grid md:grid-cols-3 gap-8 text-center">
           <div className="p-8">
             <div className="text-5xl font-bold text-coral mb-2">10,000+</div>
-            <div className="text-gray-600 text-lg">Books Available</div>
+            <div className="text-gray-600 dark:text-gray-300 text-lg">Books Available</div>
           </div>
           <div className="p-8">
             <div className="text-5xl font-bold text-coral mb-2">50,000+</div>
-            <div className="text-gray-600 text-lg">Active Readers</div>
+            <div className="text-gray-600 dark:text-gray-300 text-lg">Active Readers</div>
           </div>
           <div className="p-8">
             <div className="text-5xl font-bold text-coral mb-2">4.8★</div>
-            <div className="text-gray-600 text-lg">User Rating</div>
+            <div className="text-gray-600 dark:text-gray-300 text-lg">User Rating</div>
           </div>
         </div>
       </section>
@@ -122,21 +122,21 @@ function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gray-900 text-white py-12">
+      <footer className="bg-gray-900 dark:bg-black text-white py-12 transition-colors duration-300">
         <div className="max-w-7xl mx-auto px-4 text-center">
           <div className="text-2xl font-bold mb-4">
             Next<span className="text-coral">Chapter</span>
           </div>
-          <p className="text-gray-400 mb-6">
+          <p className="text-gray-400 dark:text-gray-500 mb-6">
             Redefining digital reading with AI-powered intelligence
           </p>
-          <div className="flex justify-center space-x-6 text-sm text-gray-400">
+          <div className="flex justify-center space-x-6 text-sm text-gray-400 dark:text-gray-500">
             <a href="#" className="hover:text-coral transition-colors">About</a>
             <a href="#" className="hover:text-coral transition-colors">Features</a>
             <a href="#" className="hover:text-coral transition-colors">Contact</a>
             <a href="#" className="hover:text-coral transition-colors">Privacy</a>
           </div>
-          <div className="mt-8 text-sm text-gray-500">
+          <div className="mt-8 text-sm text-gray-500 dark:text-gray-600">
             © 2025 NextChapter. All rights reserved.
           </div>
         </div>
