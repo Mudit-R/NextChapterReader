@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import Header from '../components/Header'
 import HeroSection from '../components/HeroSection'
 import { BookOpen, Sparkles, Brain, Search, BookMarked, Globe } from 'lucide-react'
@@ -108,16 +109,16 @@ function LandingPage() {
 
       {/* CTA Section */}
       <section className="max-w-7xl mx-auto px-4 py-20">
-        <div className="bg-gradient-to-r from-coral to-pink-500 rounded-3xl p-12 md:p-16 text-center text-white">
+        <div className="bg-linear-to-r from-coral to-pink-500 rounded-3xl p-12 md:p-16 text-center text-white">
           <h2 className="text-4xl md:text-5xl font-bold mb-6">
             Ready to Start Your Next Chapter?
           </h2>
           <p className="text-xl mb-8 opacity-90">
             Join thousands of readers discovering their next favorite book
           </p>
-          <button className="bg-white text-coral px-8 py-4 rounded-full font-semibold text-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300">
+          <Link to="/books" className="inline-block bg-white text-coral px-8 py-4 rounded-full font-semibold text-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300">
             Get Started Free
-          </button>
+          </Link>
         </div>
       </section>
 

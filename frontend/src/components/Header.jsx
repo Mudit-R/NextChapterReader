@@ -1,32 +1,34 @@
 import { useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { Menu, X, Moon, Sun } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
 
 function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const { isDark, toggleTheme } = useTheme()
+  const location = useLocation()
 
   return (
     <header className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-100 dark:border-gray-800 sticky top-0 z-50 shadow-sm transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           {/* Logo */}
-          <a href="#home" className="flex items-center">
+          <Link to="/" className="flex items-center">
             <img 
               src={isDark ? "/Union-dark.svg" : "/Union.svg"} 
               alt="NextChapter Logo" 
               className="h-8 w-auto transition-opacity duration-300"
             />
-          </a>
+          </Link>
           
           {/* Desktop Navigation - Centered */}
           <nav className="hidden md:flex items-center space-x-8 absolute left-1/2 transform -translate-x-1/2">
-            <a href="#home" className="text-gray-700 dark:text-gray-300 hover:text-coral dark:hover:text-coral font-medium transition-colors">
+            <Link to="/" className={`font-medium transition-colors ${location.pathname === '/' ? 'text-coral' : 'text-gray-700 dark:text-gray-300 hover:text-coral dark:hover:text-coral'}`}>
               Home
-            </a>
-            <a href="#mylibrary" className="text-gray-700 dark:text-gray-300 hover:text-coral dark:hover:text-coral font-medium transition-colors">
+            </Link>
+            <Link to="/books" className={`font-medium transition-colors ${location.pathname === '/books' ? 'text-coral' : 'text-gray-700 dark:text-gray-300 hover:text-coral dark:hover:text-coral'}`}>
               MyLibrary
-            </a>
+            </Link>
             <button className="bg-coral hover:bg-pink-500 text-white px-6 py-2 rounded-full font-semibold transition-all duration-300 shadow-md hover:shadow-lg">
               Subscription
             </button>
@@ -82,12 +84,12 @@ function Header() {
         {isMenuOpen && (
           <div className="md:hidden mt-4 pb-4 border-t border-gray-100 dark:border-gray-800 pt-4 animate-fade-in">
             <nav className="flex flex-col space-y-3">
-              <a href="#home" className="text-gray-700 dark:text-gray-300 hover:text-coral font-medium py-2 transition-colors">
+              <Link to="/" className={`font-medium py-2 transition-colors ${location.pathname === '/' ? 'text-coral' : 'text-gray-700 dark:text-gray-300 hover:text-coral'}`}>
                 Home
-              </a>
-              <a href="#mylibrary" className="text-gray-700 dark:text-gray-300 hover:text-coral font-medium py-2 transition-colors">
+              </Link>
+              <Link to="/books" className={`font-medium py-2 transition-colors ${location.pathname === '/books' ? 'text-coral' : 'text-gray-700 dark:text-gray-300 hover:text-coral'}`}>
                 MyLibrary
-              </a>
+              </Link>
               <button className="w-full bg-coral hover:bg-pink-500 text-white px-6 py-2.5 rounded-full font-semibold transition-all text-left">
                 Subscription
               </button>
