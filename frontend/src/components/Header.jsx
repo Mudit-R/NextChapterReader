@@ -393,11 +393,12 @@ function Header() {
           {/* Logo - Left aligned */}
           <div className="col-span-3">
             <Link to="/" className="flex items-center">
-              <img 
-                src={isDark ? "/Union-dark.svg" : "/Union.svg"} 
-                alt="NextChapter Logo" 
-                className="h-8 w-auto"
-              />
+              <span 
+                className="text-dark-gray dark:text-white text-4xl whitespace-nowrap" 
+                style={{ fontFamily: 'MigraItalic, serif' }}
+              >
+                Next Chapter
+              </span>
             </Link>
           </div>
           
