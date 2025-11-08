@@ -1,16 +1,33 @@
 import { useState, useEffect } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import { Search, X } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
+import { useAuth } from '../contexts/AuthContext'
+import { hasCompletedPersonalization } from '../lib/personalizationUtils'
 
 function BooksPage() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
   const [allBooks, setAllBooks] = useState([])
   const [filteredBooks, setFilteredBooks] = useState([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedGenre = searchParams.get('genre')
+
+  // Check personalization on mount
+  useEffect(() => {
+    const checkPersonalization = async () => {
+      if (user) {
+        const completed = await hasCompletedPersonalization(user.id)
+        if (!completed) {
+          navigate('/personalization', { replace: true })
+        }
+      }
+    }
+    checkPersonalization()
+  }, [user, navigate])
 
   // Clean up hash from URL (OAuth callback)
   useEffect(() => {

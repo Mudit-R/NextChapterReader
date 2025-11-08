@@ -4,6 +4,7 @@ import Header from '../components/Header'
 import { useTheme } from '../contexts/ThemeContext'
 import { useAuth } from '../contexts/AuthContext'
 import { ArrowRight, Eye, EyeOff } from 'lucide-react'
+import { hasCompletedPersonalization } from '../lib/personalizationUtils'
 
 function SignUpPage() {
   const { isDark } = useTheme()
@@ -20,13 +21,19 @@ function SignUpPage() {
 
   // Redirect if already logged in
   useEffect(() => {
-    console.log('📊 SignUpPage - authLoading:', authLoading, 'user:', user?.email || 'none')
-    if (!authLoading && user) {
-      console.log('👤 User detected on sign-up page, redirecting to /books')
-      // Use window.location for a hard redirect to ensure state is updated
-      window.location.href = '/books'
+    const checkAndRedirect = async () => {
+      if (!authLoading && user) {
+        const completed = await hasCompletedPersonalization(user.id)
+        if (!completed) {
+          navigate('/personalization', { replace: true })
+        } else {
+          navigate('/books', { replace: true })
+        }
+      }
     }
-  }, [user, authLoading])
+    
+    checkAndRedirect()
+  }, [user, authLoading, navigate])
 
   // Show loading while checking auth
   if (authLoading) {
@@ -106,9 +113,14 @@ function SignUpPage() {
         if (data.user && !data.session) {
           setSuccess('Account created! Please check your email to confirm your account before signing in.')
         } else if (data.user && data.session) {
-          // User is automatically signed in, redirect immediately
+          // User is automatically signed in, check personalization
           setSuccess('Account created successfully! Redirecting...')
-          navigate('/books', { replace: true })
+          const completed = await hasCompletedPersonalization(data.user.id)
+          if (!completed) {
+            navigate('/personalization', { replace: true })
+          } else {
+            navigate('/books', { replace: true })
+          }
         }
       }
     } catch (err) {

@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, ArrowLeft } from 'lucide-react'
+import { ArrowRight, ArrowLeft, X } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabaseClient'
+import { hasCompletedPersonalization } from '../lib/personalizationUtils'
 
 function PersonalizationPage() {
   const navigate = useNavigate()
@@ -14,7 +16,13 @@ function PersonalizationPage() {
   const [gender, setGender] = useState('')
   
   // Step 2 - Favorite Authors
-  const [favoriteAuthors, setFavoriteAuthors] = useState('')
+  const [selectedAuthors, setSelectedAuthors] = useState([])
+  const [authorInput, setAuthorInput] = useState('')
+  const [authorSuggestions, setAuthorSuggestions] = useState([])
+  const [loadingAuthors, setLoadingAuthors] = useState(false)
+  const [showAuthorDropdown, setShowAuthorDropdown] = useState(false)
+  const authorTimeoutRef = useRef(null)
+  const authorDropdownRef = useRef(null)
   
   // Step 3 - Genres
   const [selectedGenres, setSelectedGenres] = useState([])
@@ -44,11 +52,93 @@ function PersonalizationPage() {
 
   useEffect(() => {
     // Check if user has already completed personalization
-    const hasCompletedPersonalization = localStorage.getItem('personalization_completed')
-    if (hasCompletedPersonalization) {
-      navigate('/books')
+    const checkPersonalization = async () => {
+      if (!user) return
+      
+      const completed = await hasCompletedPersonalization(user.id)
+      if (completed) {
+        navigate('/books')
+      }
     }
-  }, [navigate])
+    
+    checkPersonalization()
+  }, [navigate, user])
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (authorDropdownRef.current && !authorDropdownRef.current.contains(event.target)) {
+        setShowAuthorDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  // Search authors from Open Library API
+  const searchAuthors = async (query) => {
+    if (!query.trim() || query.length < 2) {
+      setAuthorSuggestions([])
+      setShowAuthorDropdown(false)
+      return
+    }
+
+    setLoadingAuthors(true)
+    try {
+      const response = await fetch(
+        `https://openlibrary.org/search/authors.json?q=${encodeURIComponent(query)}&limit=10`
+      )
+      const data = await response.json()
+      
+      const authors = data.docs
+        .filter(author => author.name)
+        .map(author => ({
+          name: author.name,
+          key: author.key,
+          work_count: author.work_count || 0
+        }))
+        .slice(0, 8) // Limit to 8 suggestions
+      
+      setAuthorSuggestions(authors)
+      setShowAuthorDropdown(authors.length > 0)
+    } catch (error) {
+      console.error('Error fetching authors:', error)
+      setAuthorSuggestions([])
+    } finally {
+      setLoadingAuthors(false)
+    }
+  }
+
+  // Handle author input with debouncing
+  const handleAuthorInputChange = (e) => {
+    const value = e.target.value
+    setAuthorInput(value)
+
+    // Clear previous timeout
+    if (authorTimeoutRef.current) {
+      clearTimeout(authorTimeoutRef.current)
+    }
+
+    // Set new timeout for debounced search
+    authorTimeoutRef.current = setTimeout(() => {
+      searchAuthors(value)
+    }, 300)
+  }
+
+  // Add author to selected list
+  const addAuthor = (author) => {
+    if (!selectedAuthors.find(a => a.name === author.name)) {
+      setSelectedAuthors([...selectedAuthors, author])
+    }
+    setAuthorInput('')
+    setAuthorSuggestions([])
+    setShowAuthorDropdown(false)
+  }
+
+  // Remove author from selected list
+  const removeAuthor = (authorName) => {
+    setSelectedAuthors(selectedAuthors.filter(a => a.name !== authorName))
+  }
 
   const handleGenreToggle = (genre) => {
     setSelectedGenres(prev => 
@@ -66,7 +156,7 @@ function PersonalizationPage() {
     )
   }
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep === 1) {
       if (!username || !dateOfBirth || !gender) {
         alert('Please fill in all fields')
@@ -75,22 +165,36 @@ function PersonalizationPage() {
     }
     
     if (currentStep === 4) {
-      // Save all personalization data
-      const personalizationData = {
-        username,
-        dateOfBirth,
-        gender,
-        favoriteAuthors: favoriteAuthors.split(',').map(a => a.trim()).filter(a => a),
-        genres: selectedGenres,
-        languages: selectedLanguages,
-        completedAt: new Date().toISOString()
+      // Save all personalization data to Supabase
+      try {
+        const personalizationData = {
+          user_id: user.id,
+          username,
+          date_of_birth: dateOfBirth,
+          gender,
+          favorite_authors: selectedAuthors.map(a => a.name),
+          genres: selectedGenres,
+          languages: selectedLanguages,
+          completed_at: new Date().toISOString()
+        }
+        
+        // Upsert (insert or update) the user profile
+        const { error } = await supabase
+          .from('user_profiles')
+          .upsert(personalizationData, { onConflict: 'user_id' })
+        
+        if (error) {
+          console.error('Error saving personalization:', error)
+          alert('Failed to save your preferences. Please try again.')
+          return
+        }
+        
+        // Navigate to books page
+        navigate('/books')
+      } catch (error) {
+        console.error('Error:', error)
+        alert('An error occurred. Please try again.')
       }
-      
-      localStorage.setItem('personalization_data', JSON.stringify(personalizationData))
-      localStorage.setItem('personalization_completed', 'true')
-      
-      // Navigate to books page
-      navigate('/books')
       return
     }
     
@@ -112,10 +216,10 @@ function PersonalizationPage() {
   return (
     <div className="min-h-screen bg-dark-gray dark:bg-white flex flex-col items-center justify-center px-4 py-8">
       {/* Progress Indicator */}
-      <div className="w-full max-w-3xl mb-12">
-        <div className="flex items-center justify-between mb-4">
+      <div className="w-full mb-12 flex flex-col items-center">
+        <div className="flex items-center justify-center mb-4">
           {[1, 2, 3, 4].map((step) => (
-            <div key={step} className="flex items-center flex-1">
+            <div key={step} className="flex items-center">
               <div 
                 className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-medium transition-all ${
                   currentStep >= step 
@@ -127,7 +231,7 @@ function PersonalizationPage() {
               </div>
               {step < 4 && (
                 <div 
-                  className={`flex-1 h-0.5 mx-2 transition-all ${
+                  className={`w-16 h-0.5 mx-2 transition-all ${
                     currentStep > step 
                       ? 'bg-white dark:bg-dark-gray' 
                       : 'bg-white/30 dark:bg-dark-gray/30'
@@ -220,18 +324,74 @@ function PersonalizationPage() {
               </p>
             </div>
 
-            <div>
-              <label className="block text-xs font-medium uppercase tracking-widest text-white/60 dark:text-dark-gray/60 mb-2">
-                Authors (comma separated)
-              </label>
-              <textarea
-                value={favoriteAuthors}
-                onChange={(e) => setFavoriteAuthors(e.target.value)}
-                placeholder="e.g., J.K. Rowling, George Orwell, Jane Austen"
-                rows={6}
-                className="w-full bg-transparent border-2 border-white dark:border-dark-gray px-4 py-3 text-white dark:text-dark-gray placeholder-white/40 dark:placeholder-dark-gray/40 focus:outline-none text-sm resize-none"
-              />
-              <p className="text-xs text-white/50 dark:text-dark-gray/50 mt-2 uppercase tracking-widest">
+            <div className="space-y-4">
+              {/* Selected Authors Display */}
+              {selectedAuthors.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {selectedAuthors.map((author) => (
+                    <div
+                      key={author.key}
+                      className="flex items-center gap-2 px-3 py-2 bg-white dark:bg-dark-gray border-2 border-white dark:border-dark-gray text-dark-gray dark:text-white text-sm"
+                    >
+                      <span>{author.name}</span>
+                      <button
+                        onClick={() => removeAuthor(author.name)}
+                        className="hover:opacity-70 transition-opacity"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Author Search Input */}
+              <div className="relative" ref={authorDropdownRef}>
+                <label className="block text-xs font-medium uppercase tracking-widest text-white/60 dark:text-dark-gray/60 mb-2">
+                  Search Authors
+                </label>
+                <input
+                  type="text"
+                  value={authorInput}
+                  onChange={handleAuthorInputChange}
+                  onFocus={() => {
+                    if (authorSuggestions.length > 0) {
+                      setShowAuthorDropdown(true)
+                    }
+                  }}
+                  placeholder="Start typing author name..."
+                  className="w-full bg-transparent border-2 border-white dark:border-dark-gray px-4 py-3 text-white dark:text-dark-gray placeholder-white/40 dark:placeholder-dark-gray/40 focus:outline-none text-sm uppercase tracking-widest"
+                />
+                
+                {/* Dropdown Suggestions */}
+                {showAuthorDropdown && (
+                  <div className="absolute z-10 w-full mt-2 bg-white dark:bg-dark-gray border-2 border-white dark:border-dark-gray max-h-64 overflow-y-auto">
+                    {loadingAuthors ? (
+                      <div className="px-4 py-3 text-sm text-dark-gray dark:text-white uppercase tracking-widest">
+                        Loading...
+                      </div>
+                    ) : authorSuggestions.length > 0 ? (
+                      authorSuggestions.map((author) => (
+                        <button
+                          key={author.key}
+                          onClick={() => addAuthor(author)}
+                          className="w-full px-4 py-3 text-left hover:bg-dark-gray/10 dark:hover:bg-white/10 transition-colors border-b border-dark-gray/10 dark:border-white/10 last:border-b-0"
+                        >
+                          <div className="text-sm text-dark-gray dark:text-white">
+                            {author.name}
+                          </div>
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-4 py-3 text-sm text-dark-gray/60 dark:text-white/60 uppercase tracking-widest">
+                        No authors found
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <p className="text-xs text-white/50 dark:text-dark-gray/50 uppercase tracking-widest">
                 This helps us recommend books you'll love
               </p>
             </div>

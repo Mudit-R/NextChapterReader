@@ -4,6 +4,7 @@ import Header from '../components/Header'
 import { useTheme } from '../contexts/ThemeContext'
 import { useAuth } from '../contexts/AuthContext'
 import { ArrowRight } from 'lucide-react'
+import { hasCompletedPersonalization } from '../lib/personalizationUtils'
 
 function SignInPage() {
   const { isDark } = useTheme()
@@ -18,33 +19,19 @@ function SignInPage() {
 
   // Redirect if already logged in
   useEffect(() => {
-    console.log('📊 SignInPage useEffect triggered')
-    console.log('   - authLoading:', authLoading)
-    console.log('   - user:', user?.email || 'none')
-    console.log('   - user object:', user)
-    
-    if (!authLoading && user) {
-      console.log('👤 User detected on sign-in page!')
-      
-      // Check if user has completed personalization
-      const hasCompletedPersonalization = localStorage.getItem('personalization_completed')
-      
-      if (!hasCompletedPersonalization) {
-        console.log('🚀 EXECUTING redirect to /personalization from SignInPage')
-        window.location.href = '/personalization'
-      } else {
-        console.log('🚀 EXECUTING redirect to /books from SignInPage')
-        window.location.href = '/books'
-      }
-    } else {
-      if (authLoading) {
-        console.log('⏳ Still loading auth state...')
-      }
-      if (!user) {
-        console.log('❌ No user detected yet')
+    const checkAndRedirect = async () => {
+      if (!authLoading && user) {
+        const completed = await hasCompletedPersonalization(user.id)
+        if (!completed) {
+          navigate('/personalization', { replace: true })
+        } else {
+          navigate('/books', { replace: true })
+        }
       }
     }
-  }, [user, authLoading])
+    
+    checkAndRedirect()
+  }, [user, authLoading, navigate])
 
   // Show loading while checking auth
   if (authLoading) {
@@ -87,13 +74,14 @@ function SignInPage() {
       } else {
         setSuccess('Successfully signed in! Redirecting...')
         
-        // Check if user has completed personalization
-        const hasCompletedPersonalization = localStorage.getItem('personalization_completed')
-        
-        if (!hasCompletedPersonalization) {
-          navigate('/personalization', { replace: true })
-        } else {
-          navigate('/books', { replace: true })
+        // Check if user has completed personalization in database
+        if (data?.user) {
+          const completed = await hasCompletedPersonalization(data.user.id)
+          if (!completed) {
+            navigate('/personalization', { replace: true })
+          } else {
+            navigate('/books', { replace: true })
+          }
         }
       }
     } catch (err) {

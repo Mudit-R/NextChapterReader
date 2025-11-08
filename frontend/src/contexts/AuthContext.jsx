@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { hasCompletedPersonalization } from '../lib/personalizationUtils'
 
 const AuthContext = createContext()
 
@@ -37,7 +38,7 @@ export function AuthProvider({ children }) {
       setUser(session?.user ?? null)
       setLoading(false)
       
-      // Handle OAuth sign-in - redirect to /books if on sign-in/sign-up pages
+      // Handle OAuth sign-in - redirect based on personalization status
       if (event === 'SIGNED_IN' && session) {
         console.log('✅ SIGNED_IN event detected')
         const currentPath = window.location.pathname
@@ -45,12 +46,16 @@ export function AuthProvider({ children }) {
         
         // Only redirect from sign-in/sign-up pages, NOT from landing page
         if (currentPath === '/sign-in' || currentPath === '/sign-up') {
-          console.log('🚀 INITIATING redirect to /books from', currentPath)
-          // Small delay to ensure state is set
-          setTimeout(() => {
-            console.log('⚡ EXECUTING redirect to /books NOW')
-            window.location.href = '/books'
-          }, 100)
+          // Check personalization status
+          hasCompletedPersonalization(session.user.id).then(completed => {
+            if (!completed) {
+              console.log('🚀 Redirecting to /personalization')
+              window.location.href = '/personalization'
+            } else {
+              console.log('🚀 Redirecting to /books')
+              window.location.href = '/books'
+            }
+          })
         } else {
           console.log('⚠️ Not redirecting - current path is:', currentPath)
         }
