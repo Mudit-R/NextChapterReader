@@ -80,21 +80,21 @@ function ReadingActivityCard() {
   }
 
   const getIntensityClass = (intensity) => {
-    // Using dark colors with varying opacity on light background
-    // Inverted from white on dark to dark on light
+    // Using vibrant colors for better visibility and distinction
+    // Green scale from light to dark for reading activity
     switch (intensity) {
       case 0:
-        return 'bg-dark-gray/10' // Very light/transparent for no activity
+        return 'bg-white/5' // Very light/transparent for no activity
       case 1:
-        return 'bg-dark-gray/40' // Light activity
+        return 'bg-emerald-400/40' // Light activity - light green
       case 2:
-        return 'bg-dark-gray/60' // Moderate activity
+        return 'bg-emerald-500/60' // Moderate activity - medium green
       case 3:
-        return 'bg-dark-gray/80' // High activity
+        return 'bg-emerald-600/80' // High activity - darker green
       case 4:
-        return 'bg-dark-gray' // Very high activity - pure dark
+        return 'bg-emerald-700' // Very high activity - darkest green
       default:
-        return 'bg-dark-gray/10'
+        return 'bg-white/5'
     }
   }
 
@@ -124,19 +124,19 @@ function ReadingActivityCard() {
   const currentDay = new Date().getDate()
 
   return (
-    <div className="bg-white dark:bg-gray-100 p-4">
+    <div className="bg-dark-gray dark:bg-white border-2 border-white/30 dark:border-dark-gray/30 p-4 mb-4">
       {/* Header */}
       <div className="mb-4">
-        <h3 className="text-sm text-dark-gray font-medium mb-1 uppercase tracking-wider">
+        <h3 className="text-base text-white dark:text-dark-gray font-medium mb-1 uppercase tracking-wider">
           Reading Activity
         </h3>
-        <p className="text-xs text-dark-gray/70">
+        <p className="text-sm text-white/70 dark:text-dark-gray/70">
           {stats.activeDays} days active this year | {stats.pagesRead.toLocaleString()} pages read
         </p>
       </div>
 
-      {/* Months Grid - All in one line with horizontal scroll if needed */}
-      <div className="flex gap-x-3 gap-y-4 mb-4 overflow-x-auto pb-2">
+      {/* Months Grid - Optimized size for readability */}
+      <div className="flex gap-x-1.5 gap-y-4 mb-4 overflow-x-auto pb-2">
         {months.map((monthName, monthIndex) => {
           const daysInCurrentMonth = daysInMonth(monthIndex, currentYear)
           const firstDay = getFirstDayOfWeek(monthIndex, currentYear)
@@ -144,9 +144,9 @@ function ReadingActivityCard() {
           const isFutureMonth = monthIndex > currentMonth
           
           return (
-            <div key={monthIndex} className="flex flex-col gap-2 flex-shrink-0">
+            <div key={monthIndex} className="flex flex-col gap-1.5 flex-shrink-0">
               {/* Month Label */}
-              <div className="text-[10px] text-dark-gray/60 uppercase tracking-wider text-center">
+              <div className="text-xs text-white/60 dark:text-dark-gray/60 uppercase tracking-wider text-center font-medium">
                 {monthName}
               </div>
               
@@ -154,7 +154,7 @@ function ReadingActivityCard() {
               <div className="grid grid-cols-7 gap-[2px]">
                 {/* Empty cells for days before month starts */}
                 {Array.from({ length: firstDay }).map((_, i) => (
-                  <div key={`empty-${i}`} className="w-[7px] h-[7px]" />
+                  <div key={`empty-${i}`} className="w-[9px] h-[9px] rounded-sm" />
                 ))}
                 
                 {/* Days of the month */}
@@ -168,11 +168,11 @@ function ReadingActivityCard() {
                   return (
                     <div
                       key={day}
-                      className={`w-[7px] h-[7px] cursor-pointer hover:scale-150 hover:z-10 relative transition-transform ${
+                      className={`w-[9px] h-[9px] rounded-sm cursor-pointer hover:scale-125 hover:z-10 relative transition-all ${
                         isFuture 
-                          ? 'bg-dark-gray/10' 
+                          ? 'bg-white/5' 
                           : getIntensityClass(intensity)
-                      } ${isToday ? 'ring-[1px] ring-dark-gray/50' : ''}`}
+                      } ${isToday ? 'ring-2 ring-yellow-400' : ''}`}
                       title={
                         activity
                           ? `${formatDate(activity.date)} — ${activity.pages} pages read (${activity.sessions} ${activity.sessions === 1 ? 'session' : 'sessions'})`
@@ -190,13 +190,13 @@ function ReadingActivityCard() {
       </div>
 
       {/* Legend */}
-      <div className="flex items-center justify-end gap-2 text-[10px] text-dark-gray/50">
+      <div className="flex items-center justify-end gap-2 text-xs text-white/50 dark:text-dark-gray/50">
         <span>Less</span>
         <div className="flex gap-[2px]">
-          <div className="w-[7px] h-[7px] bg-dark-gray/40" />
-          <div className="w-[7px] h-[7px] bg-dark-gray/60" />
-          <div className="w-[7px] h-[7px] bg-dark-gray/80" />
-          <div className="w-[7px] h-[7px] bg-dark-gray" />
+          <div className="w-[9px] h-[9px] rounded-sm bg-emerald-400/40" />
+          <div className="w-[9px] h-[9px] rounded-sm bg-emerald-500/60" />
+          <div className="w-[9px] h-[9px] rounded-sm bg-emerald-600/80" />
+          <div className="w-[9px] h-[9px] rounded-sm bg-emerald-700" />
         </div>
         <span>More</span>
       </div>
