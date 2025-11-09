@@ -201,7 +201,7 @@ function MonthlyProgressCard() {
   }
 
   return (
-    <div className="bg-dark-gray dark:bg-white border-2 border-white/30 dark:border-dark-gray/30 p-4 flex flex-col h-full">
+    <div className="bg-dark-gray dark:bg-white border-2 border-white/30 dark:border-dark-gray/30 p-4 flex flex-col h-fit">
       {/* Header */}
       <div className="mb-4">
         <h3 className="text-base text-white dark:text-dark-gray font-semibold uppercase tracking-wider mb-1">
@@ -213,12 +213,12 @@ function MonthlyProgressCard() {
       </div>
 
       {/* Chart */}
-      <div className="flex-1 mb-4 relative min-h-[260px]">
+      <div className="mb-4 relative" style={{ height: '175px' }}>
         {chart && chart.points.length > 0 && (
           <div className="w-full">
             <svg 
               width="100%" 
-              height="260" 
+              height="220" 
               viewBox={`0 0 ${chart.width} ${chart.height}`}
               preserveAspectRatio="xMidYMid meet"
               className="w-full h-full"
@@ -356,10 +356,10 @@ function MonthlyProgressCard() {
                 <text
                   key={index}
                   x={point.x}
-                  y={chart.height - 18}
+                  y={chart.height - 10}
                   textAnchor="middle"
                   fill="#000000"
-                  fontSize="14"
+                  fontSize="20"
                   fontWeight="600"
                 >
                   {point.month}
