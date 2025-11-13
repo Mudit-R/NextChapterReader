@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { ArrowLeft, ArrowRight, Moon, Sun, ZoomIn, ZoomOut, RotateCcw, MessageSquare, Image as ImageIcon, X, Menu } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
 const ReaderLocal = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const bookId = searchParams.get('id');
   const { isDark, toggleTheme } = useTheme();
   
@@ -694,12 +695,12 @@ Provide helpful, concise responses about the book considering the context of the
           {/* Reader Header */}
           <div ref={headerRef} className="bg-white dark:bg-dark-gray border-b-2 border-dark-gray dark:border-white px-8 py-3">
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
-              <Link 
-                to="/books" 
-                className="text-[10px] font-medium uppercase tracking-widest text-dark-gray/60 dark:text-white/60 hover:text-dark-gray dark:hover:text-white transition-colors flex-shrink-0"
+              <button 
+                onClick={() => navigate(-1)}
+                className="text-[10px] font-medium uppercase tracking-widest text-dark-gray/60 dark:text-white/60 hover:text-dark-gray dark:hover:text-white transition-colors flex-shrink-0 bg-transparent border-0 cursor-pointer"
               >
                 ← Back
-              </Link>
+              </button>
               <h1 className="text-sm md:text-base text-dark-gray dark:text-white font-light leading-tight truncate flex-1 text-center px-4">
                 {bookTitle || 'Loading…'}
               </h1>

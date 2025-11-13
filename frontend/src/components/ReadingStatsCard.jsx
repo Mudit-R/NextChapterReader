@@ -1,37 +1,47 @@
 import { Zap, Flame, Clock, Calendar } from 'lucide-react'
 
-function ReadingStatsCard() {
+function ReadingStatsCard({ readingStats = null }) {
+  // Use provided stats or default values
+  const statsData = readingStats || {
+    readingSpeed: 0,
+    currentStreak: 0,
+    longestStreak: 0,
+    averageSession: 0,
+    thisMonthBooks: 0,
+    thisMonthPages: 0
+  }
+
   const stats = [
     {
       title: 'Reading Speed',
-      value: '28',
+      value: statsData.readingSpeed?.toString() || '0',
       unit: 'pages/hour',
       icon: Zap,
-      tag: '+5% vs last month',
+      tag: statsData.readingSpeed > 0 ? 'Based on sessions' : 'No data yet',
       iconColor: 'text-yellow-400/80 dark:text-yellow-500/70'
     },
     {
       title: 'Current Streak',
-      value: '15',
+      value: statsData.currentStreak?.toString() || '0',
       unit: 'days',
       icon: Flame,
-      tag: 'Longest: 28 days',
+      tag: `Longest: ${statsData.longestStreak || 0} days`,
       iconColor: 'text-orange-400/80 dark:text-orange-500/70'
     },
     {
       title: 'Average Session',
-      value: '45',
+      value: statsData.averageSession?.toString() || '0',
       unit: 'minutes',
       icon: Clock,
-      tag: 'Evening Reader',
+      tag: statsData.averageSession > 0 ? 'This year' : 'No sessions yet',
       iconColor: 'text-blue-400/80 dark:text-blue-500/70'
     },
     {
       title: 'This Month',
-      value: '4',
+      value: statsData.thisMonthBooks?.toString() || '0',
       unit: 'books',
       icon: Calendar,
-      tag: '1,100 pages',
+      tag: `${(statsData.thisMonthPages || 0).toLocaleString()} pages`,
       iconColor: 'text-green-400/80 dark:text-green-500/70'
     }
   ]

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 
-function GenrePreferencesCard() {
+function GenrePreferencesCard({ genreDistribution: propGenreDistribution = {} }) {
   const [genreData, setGenreData] = useState([])
   const [totalBooks, setTotalBooks] = useState(0)
   const [loading, setLoading] = useState(true)
@@ -28,8 +28,26 @@ function GenrePreferencesCard() {
   }
 
   useEffect(() => {
-    loadGenreData()
-  }, [])
+    if (propGenreDistribution && Object.keys(propGenreDistribution).length > 0) {
+      // Use provided genre distribution
+      const total = Object.values(propGenreDistribution).reduce((sum, count) => sum + count, 0)
+      const genres = Object.entries(propGenreDistribution)
+        .map(([genre, count]) => ({
+          genre,
+          count,
+          percentage: total > 0 ? Math.round((count / total) * 100) : 0
+        }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5)
+      
+      setGenreData(genres)
+      setTotalBooks(total)
+      setLoading(false)
+    } else {
+      // Fallback to loading from database/localStorage
+      loadGenreData()
+    }
+  }, [propGenreDistribution])
 
   const loadGenreData = async () => {
     try {
