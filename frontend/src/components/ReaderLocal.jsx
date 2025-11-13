@@ -1,14 +1,22 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import { ArrowLeft, ArrowRight, Moon, Sun, ZoomIn, ZoomOut, RotateCcw, MessageSquare, Image as ImageIcon, X, Menu } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
+import * as pdfjsLib from 'pdfjs-dist/build/pdf';
+import pdfjsWorker from 'pdfjs-dist/build/pdf.worker?url';
+
+if (pdfjsLib?.GlobalWorkerOptions) {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+}
 
 const ReaderLocal = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const bookId = searchParams.get('id');
   const { isDark, toggleTheme } = useTheme();
+  const { user } = useAuth();
   
   const [bookTitle, setBookTitle] = useState('');
   const [bookDescription, setBookDescription] = useState('');
@@ -33,172 +41,361 @@ const ReaderLocal = () => {
   const [dictLoading, setDictLoading] = useState(false);
   const [dictError, setDictError] = useState('');
   
-  const pdfFrameRef = useRef(null);
   const viewerRef = useRef(null);
-  const pageTrackingIntervalRef = useRef(null);
-  const pdfUrlRef = useRef('');
-  const viewerContainerRef = useRef(null);
-  const lastTrackedPageRef = useRef(1);
-  const isNavigatingRef = useRef(false);
+  const pdfDocRef = useRef(null);
+  const pageElementsRef = useRef(new Map());
+  const canvasMapRef = useRef(new Map());
+  const renderingTasksRef = useRef(new Map());
+  const pageScaleCacheRef = useRef(new Map());
+  const scrollAnimationFrameRef = useRef(null);
   const headerRef = useRef(null);
+  const lastScrollPageRef = useRef(1);
+  const navigationResetTimeoutRef = useRef(null);
 
   useEffect(() => {
     return () => {
-      if (pageTrackingIntervalRef.current) {
-        clearInterval(pageTrackingIntervalRef.current);
+      renderingTasksRef.current.forEach((task) => {
+        if (task && typeof task.cancel === 'function') {
+          task.cancel();
+        }
+      });
+      renderingTasksRef.current.clear();
+      if (scrollAnimationFrameRef.current) {
+        cancelAnimationFrame(scrollAnimationFrameRef.current);
+      }
+      if (navigationResetTimeoutRef.current) {
+        clearTimeout(navigationResetTimeoutRef.current);
       }
     };
   }, []);
 
-  const estimateTotalPages = async (url) => {
-    try {
-      // Wait for pdfjsLib to be available
-      if (typeof window.pdfjsLib === 'undefined') {
-        // Try again after a short delay
-        setTimeout(() => estimateTotalPages(url), 500);
-        return;
-      }
-      
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      const loadingTask = window.pdfjsLib.getDocument(url);
-      const pdf = await loadingTask.promise;
-      console.log('Total pages detected:', pdf.numPages);
-      setTotalPages(pdf.numPages);
-    } catch (e) {
-      console.error('Could not determine page count:', e);
-      // Try alternative method: fetch and count pages
-      try {
-        const response = await fetch(url);
-        const arrayBuffer = await response.arrayBuffer();
-        if (typeof window.pdfjsLib !== 'undefined') {
-          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-          const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
-          const pdf = await loadingTask.promise;
-          console.log('Total pages detected (alternative method):', pdf.numPages);
-          setTotalPages(pdf.numPages);
-        }
-      } catch (err) {
-        console.error('Failed to get page count:', err);
-      }
-    }
-  };
+  const preparePageContainers = useCallback((pageCount) => {
+    if (!viewerRef.current) return;
 
-  const setupPageTracking = (frame) => {
-    if (pageTrackingIntervalRef.current) {
-      clearInterval(pageTrackingIntervalRef.current);
+    viewerRef.current.innerHTML = '';
+    pageElementsRef.current = new Map();
+    canvasMapRef.current = new Map();
+    pageScaleCacheRef.current = new Map();
+
+    const container = document.createElement('div');
+    container.className = 'pdf-pages-container w-full flex flex-col items-center gap-8 py-8';
+    viewerRef.current.appendChild(container);
+
+    const fragment = document.createDocumentFragment();
+    for (let pageNum = 1; pageNum <= pageCount; pageNum += 1) {
+      const wrapper = document.createElement('div');
+      wrapper.dataset.pageNumber = pageNum.toString();
+      wrapper.className = 'pdf-page-wrapper w-full flex justify-center relative px-4';
+
+      const canvas = document.createElement('canvas');
+      canvas.className = 'pdf-page-canvas shadow-lg border border-dark-gray/10 dark:border-white/10 bg-white';
+      canvas.style.maxWidth = '900px';
+      canvas.style.width = '100%';
+      canvas.style.height = 'auto';
+
+      wrapper.appendChild(canvas);
+      fragment.appendChild(wrapper);
+
+      pageElementsRef.current.set(pageNum, wrapper);
+      canvasMapRef.current.set(pageNum, canvas);
     }
-    
-    lastTrackedPageRef.current = currentPage;
-    
-    // Track page changes from iframe - try multiple methods
-    pageTrackingIntervalRef.current = setInterval(() => {
-      // Don't track if we're in the middle of navigation
-      if (isNavigatingRef.current) {
+
+    container.appendChild(fragment);
+  }, []);
+
+  const renderPage = useCallback(async (pageNumber, { force = false } = {}) => {
+    if (!pdfDocRef.current) return;
+    if (!canvasMapRef.current.has(pageNumber)) return;
+
+    const cachedScale = pageScaleCacheRef.current.get(pageNumber);
+    if (!force && cachedScale === zoomLevel) {
+      return;
+    }
+
+    pageScaleCacheRef.current.set(pageNumber, zoomLevel);
+
+    const existingTask = renderingTasksRef.current.get(pageNumber);
+    if (existingTask && typeof existingTask.cancel === 'function') {
+      existingTask.cancel();
+    }
+    renderingTasksRef.current.delete(pageNumber);
+
+    try {
+      const page = await pdfDocRef.current.getPage(pageNumber);
+      const scale = zoomLevel / 100;
+      const viewport = page.getViewport({ scale });
+      const canvas = canvasMapRef.current.get(pageNumber);
+      const context = canvas.getContext('2d', { alpha: false });
+
+      if (!context) {
+        console.warn(`Canvas context missing for page ${pageNumber}`);
         return;
       }
-      
-      let detectedPage = null;
-      
-      // Method 1: Try to access iframe's contentWindow.location.hash (works for same-origin)
-      try {
-        if (frame.contentWindow && frame.contentWindow.location) {
-          const hash = frame.contentWindow.location.hash;
-          const pageMatch = hash.match(/[#&]page=(\d+)/);
-          if (pageMatch) {
-            detectedPage = parseInt(pageMatch[1]);
-            console.log('Hash tracking found page:', detectedPage);
-          }
-        }
-      } catch (e) {
-        // CORS - can't access iframe contentWindow
+
+      const outputScale = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+      canvas.width = viewport.width * outputScale;
+      canvas.height = viewport.height * outputScale;
+      canvas.style.width = `${viewport.width}px`;
+      canvas.style.height = `${viewport.height}px`;
+
+      context.setTransform(outputScale, 0, 0, outputScale, 0, 0);
+      context.imageSmoothingQuality = 'high';
+      context.fillStyle = '#ffffff';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+
+      const renderTask = page.render({ canvasContext: context, viewport });
+      renderingTasksRef.current.set(pageNumber, renderTask);
+      await renderTask.promise;
+    } catch (error) {
+      if (error?.name !== 'RenderingCancelledException') {
+        console.error(`Failed to render page ${pageNumber}`, error);
       }
-      
-      // Method 2: Try to read iframe src attribute
-      if (!detectedPage) {
-        try {
-          const srcMatch = frame.src.match(/[#&]page=(\d+)/);
-          if (srcMatch) {
-            detectedPage = parseInt(srcMatch[1]);
-            console.log('Src tracking found page:', detectedPage);
+    } finally {
+      renderingTasksRef.current.delete(pageNumber);
+    }
+  }, [zoomLevel]);
+
+  const renderSurroundingPages = useCallback((pageNumber) => {
+    if (!pdfDocRef.current) return;
+
+    const pagesToRender = new Set([pageNumber]);
+    if (pageNumber > 1) pagesToRender.add(pageNumber - 1);
+    if (pageNumber < pdfDocRef.current.numPages) pagesToRender.add(pageNumber + 1);
+    if (pageNumber > 2) pagesToRender.add(pageNumber - 2);
+    if (pageNumber < pdfDocRef.current.numPages - 1) pagesToRender.add(pageNumber + 2);
+
+    pagesToRender.forEach((page) => {
+      if (canvasMapRef.current.has(page)) {
+        renderPage(page).catch((error) => {
+          if (error?.name !== 'RenderingCancelledException') {
+            console.error(`Error rendering page ${page}`, error);
           }
-        } catch (e) {
-          // CORS
-        }
-      }
-      
-      // Method 3: Try to access iframe's document (for same-origin PDFs)
-      if (!detectedPage) {
-        try {
-          if (frame.contentDocument && frame.contentDocument.location) {
-            const hash = frame.contentDocument.location.hash;
-            const pageMatch = hash.match(/[#&]page=(\d+)/);
-            if (pageMatch) {
-              detectedPage = parseInt(pageMatch[1]);
-              console.log('Document tracking found page:', detectedPage);
-            }
-          }
-        } catch (e) {
-          // CORS
-        }
-      }
-      
-      // Update page if detected
-      if (detectedPage && detectedPage !== lastTrackedPageRef.current && detectedPage > 0) {
-        console.log('Page tracking: updating from', lastTrackedPageRef.current, 'to', detectedPage);
-        lastTrackedPageRef.current = detectedPage;
-        setCurrentPage(prevPage => {
-          if (detectedPage !== prevPage && detectedPage > 0) {
-            return detectedPage;
-          }
-          return prevPage;
         });
       }
-    }, 300); // Check every 300ms for better responsiveness
-    
-    // Also listen for hashchange events in the iframe (if accessible)
-    const handleHashChange = () => {
-      if (isNavigatingRef.current) return;
-      
-      try {
-        if (frame.contentWindow && frame.contentWindow.location) {
-          const hash = frame.contentWindow.location.hash;
-          const pageMatch = hash.match(/[#&]page=(\d+)/);
-          if (pageMatch) {
-            const page = parseInt(pageMatch[1]);
-            if (page !== lastTrackedPageRef.current && page > 0) {
-              lastTrackedPageRef.current = page;
-              setCurrentPage(page);
-              console.log('Hashchange detected page change:', page);
-            }
-          }
-        }
-      } catch (e) {
-        // CORS
+    });
+  }, [renderPage]);
+
+  const updateCurrentPageFromScroll = useCallback(() => {
+    if (!viewerRef.current || !pdfDocRef.current) return;
+    const container = viewerRef.current;
+    const scrollTop = container.scrollTop;
+    const viewCenter = scrollTop + container.clientHeight / 2;
+
+    let closestPage = lastScrollPageRef.current;
+    let minDistance = Number.POSITIVE_INFINITY;
+
+    pageElementsRef.current.forEach((element, pageNum) => {
+      const offsetTop = element.offsetTop;
+      const height = element.offsetHeight || 1;
+      const pageCenter = offsetTop + height / 2;
+      const distance = Math.abs(pageCenter - viewCenter);
+
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestPage = pageNum;
+      }
+    });
+
+    if (closestPage !== lastScrollPageRef.current) {
+      lastScrollPageRef.current = closestPage;
+      setCurrentPage((prev) => (prev !== closestPage ? closestPage : prev));
+      renderSurroundingPages(closestPage);
+    }
+  }, [renderSurroundingPages]);
+
+  const renderPageRef = useRef(renderPage);
+  const renderSurroundingPagesRef = useRef(renderSurroundingPages);
+  const updateCurrentPageFromScrollRef = useRef(updateCurrentPageFromScroll);
+
+  useEffect(() => {
+    renderPageRef.current = renderPage;
+  }, [renderPage]);
+
+  useEffect(() => {
+    renderSurroundingPagesRef.current = renderSurroundingPages;
+  }, [renderSurroundingPages]);
+
+  useEffect(() => {
+    updateCurrentPageFromScrollRef.current = updateCurrentPageFromScroll;
+  }, [updateCurrentPageFromScroll]);
+
+  useEffect(() => {
+    if (!viewerRef.current) return;
+    const container = viewerRef.current;
+
+    const handleScroll = () => {
+      if (scrollAnimationFrameRef.current) {
+        cancelAnimationFrame(scrollAnimationFrameRef.current);
+      }
+
+      scrollAnimationFrameRef.current = requestAnimationFrame(() => {
+        updateCurrentPageFromScroll();
+        scrollAnimationFrameRef.current = null;
+      });
+    };
+
+    container.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      if (scrollAnimationFrameRef.current) {
+        cancelAnimationFrame(scrollAnimationFrameRef.current);
+        scrollAnimationFrameRef.current = null;
       }
     };
-    
-    try {
-      if (frame.contentWindow) {
-        frame.contentWindow.addEventListener('hashchange', handleHashChange);
-      }
-    } catch (e) {
-      // CORS - can't access iframe contentWindow
+  }, [updateCurrentPageFromScroll]);
+
+  useEffect(() => {
+    if (!pdfDocRef.current) return;
+    const renderedPages = Array.from(pageScaleCacheRef.current.keys());
+    renderedPages.forEach((page) => {
+      renderPageRef.current(page, { force: true }).catch(() => {});
+    });
+    if (currentPage > 0) {
+      renderSurroundingPagesRef.current(currentPage);
+    }
+  }, [zoomLevel, currentPage]);
+
+  // Save reading progress to database and localStorage
+  useEffect(() => {
+    if (!bookId || !totalPages || totalPages <= 0) return;
+    if (!currentPage || currentPage <= 0) return;
+
+    const normalizedCurrentPage = Math.min(currentPage, totalPages);
+    let progress = 0;
+
+    // Calculate progress: page 1 = 0%, last page = 100%
+    if (normalizedCurrentPage >= totalPages) {
+      progress = 100;
+    } else if (normalizedCurrentPage === 1) {
+      // First page = 0% progress (not started yet)
+      progress = 0;
+    } else {
+      // For pages 2 to (totalPages-1), calculate based on completed pages
+      const completedPages = normalizedCurrentPage - 1;
+      progress = Math.max(0, Math.min(100, Math.round((completedPages / totalPages) * 100)));
     }
     
-    // Store cleanup
-    frame._trackingCleanup = () => {
-      if (pageTrackingIntervalRef.current) {
-        clearInterval(pageTrackingIntervalRef.current);
-      }
-      try {
-        if (frame.contentWindow) {
-          frame.contentWindow.removeEventListener('hashchange', handleHashChange);
+    // Save to localStorage for backward compatibility
+    localStorage.setItem(`book_progress_${bookId}`, progress.toString());
+
+    // Save to database if user is logged in
+    // Always save current_page when progress > 0 (user has started reading)
+    // For progress = 0, we only save if it's not a new book (to handle edge cases)
+    if (user && user.id) {
+      const saveProgress = async () => {
+        try {
+          const status = progress >= 100 ? 'read' : 'reading';
+          
+          // Always save current_page when progress > 0
+          // This ensures we can resume from the exact page the user left off
+          if (progress > 0) {
+            // Upsert reading progress in user_books table
+            const { error: upsertError } = await supabase
+              .from('user_books')
+              .upsert({
+                user_id: user.id,
+                book_id: bookId,
+                current_page: normalizedCurrentPage, // Always save the current page
+                progress_percentage: progress,
+                status: status,
+                updated_at: new Date().toISOString()
+              }, {
+                onConflict: 'user_id,book_id'
+              });
+
+            if (upsertError) {
+              console.error('Error saving reading progress:', upsertError);
+            } else {
+              console.log('Reading progress saved:', { currentPage: normalizedCurrentPage, progress });
+              
+              // Sync dashboard data to update user profile statistics
+              // Only sync when progress is significant (completed book or every 10% progress)
+              const shouldSync = progress >= 100 || (progress % 10 === 0 && progress > 0);
+              
+              if (shouldSync) {
+                try {
+                  const { syncDashboardData } = await import('../lib/dashboardUtils');
+                  // Fetch current reading sessions and books read to sync
+                  const { data: readingSessions } = await supabase
+                    .from('reading_sessions')
+                    .select('*')
+                    .eq('user_id', user.id)
+                    .order('date', { ascending: false });
+                  
+                  const { data: booksRead } = await supabase
+                    .from('user_books')
+                    .select('*, books(*)')
+                    .eq('user_id', user.id)
+                    .eq('status', 'read');
+                  
+                  await syncDashboardData(
+                    user.id,
+                    readingSessions?.data || [],
+                    booksRead?.data || []
+                  );
+                  console.log('Dashboard data synced successfully');
+                } catch (syncError) {
+                  console.warn('Could not sync dashboard data:', syncError);
+                  // Don't fail the save if sync fails
+                }
+              }
+            }
+          } else {
+            // Progress is 0 - don't save to database for new books
+            // This keeps the database clean
+            console.log('Progress is 0%, not saving to database (new book)');
+          }
+        } catch (err) {
+          console.error('Error saving progress to database:', err);
         }
-      } catch (e) {
-        // CORS
+      };
+
+      // Debounce database saves to avoid too many writes
+      const timeoutId = setTimeout(saveProgress, 1000);
+      return () => clearTimeout(timeoutId);
+    } else if (user && user.id && progress === 0 && normalizedCurrentPage === 1) {
+      // For new books (page 1, 0% progress), ensure we don't have stale data
+      // Delete any existing record with 0% progress to keep database clean
+      const cleanupProgress = async () => {
+        try {
+          const { data: existing } = await supabase
+            .from('user_books')
+            .select('progress_percentage')
+            .eq('user_id', user.id)
+            .eq('book_id', bookId)
+            .single();
+          
+          // Only delete if there's a record with 0% progress (stale data)
+          if (existing && existing.progress_percentage === 0) {
+            await supabase
+              .from('user_books')
+              .delete()
+              .eq('user_id', user.id)
+              .eq('book_id', bookId);
+          }
+        } catch (err) {
+          // Ignore errors - this is just cleanup
+        }
+      };
+      
+      // Run cleanup after a delay to avoid race conditions
+      const cleanupTimeout = setTimeout(cleanupProgress, 2000);
+      return () => clearTimeout(cleanupTimeout);
+    }
+
+    // Update localStorage read list for backward compatibility
+    const readList = JSON.parse(localStorage.getItem('read') || '[]');
+    if (progress >= 100) {
+      if (!readList.includes(bookId)) {
+        const updated = [...readList, bookId];
+        localStorage.setItem('read', JSON.stringify(updated));
       }
-    };
-  };
+    } else if (readList.includes(bookId)) {
+      const updated = readList.filter((existingId) => existingId !== bookId);
+      localStorage.setItem('read', JSON.stringify(updated));
+    }
+  }, [bookId, currentPage, totalPages, user]);
 
   useEffect(() => {
     if (!bookId) {
@@ -211,7 +408,6 @@ const ReaderLocal = () => {
     const loadBook = async () => {
       setLoading(true);
       setError('');
-      setCurrentPage(1); // Reset to page 1 when loading new book
       
       try {
         console.log('Loading book with ID:', bookId);
@@ -237,7 +433,7 @@ const ReaderLocal = () => {
         setBookDescription(book.description || '');
         setBookCover(book.cover_image || '');
         
-        // Get PDF URL from Supabase Storage
+        // Get PDF file from Supabase Storage
         // Assuming the book has a pdf_file field with the filename
         const pdfFileName = book.pdf_file || book.pdf_filename;
         
@@ -245,81 +441,175 @@ const ReaderLocal = () => {
           throw new Error('No PDF file found for this book');
         }
         
-        // Get public URL from Supabase Storage bucket 'Book-storage'
-        const { data: urlData } = supabase
-          .storage
-          .from('Book-storage')
-          .getPublicUrl(pdfFileName);
-        
-        const fullPdfUrl = urlData.publicUrl;
-        pdfUrlRef.current = fullPdfUrl;
-        
-        console.log('PDF URL:', fullPdfUrl);
-        
-        // Wait for viewerRef to be available
-        const setupFrame = () => {
-          if (viewerRef.current) {
-            console.log('Setting up PDF frame in viewer');
-            viewerRef.current.innerHTML = '';
-            
-            const frame = document.createElement('iframe');
-            const pdfSrc = fullPdfUrl + '#page=1&toolbar=0&navpanes=0&scrollbar=0';
-            console.log('PDF iframe src:', pdfSrc);
-            frame.src = pdfSrc;
-            frame.style.width = '100%';
-            frame.style.height = '100%';
-            frame.style.border = 'none';
-            frame.style.minHeight = '500px';
-            frame.style.overflowX = 'hidden';
-            frame.id = 'pdfViewer';
-            frame.title = 'PDF Viewer';
-            frame.allow = 'fullscreen';
-            
-            frame.onerror = (e) => {
-              console.error('Iframe load error:', e);
-              setError('Error loading PDF. Please check if the file exists.');
-            };
-            
-            viewerRef.current.appendChild(frame);
-            pdfFrameRef.current = frame;
-            
-            frame.onload = () => {
-              console.log('PDF iframe loaded successfully');
-              estimateTotalPages(fullPdfUrl);
+        console.log('Loading PDF file:', pdfFileName);
+
+        // Load saved reading progress from database
+        let savedPage = 1;
+        let savedProgress = 0;
+        if (user && bookId) {
+          try {
+            const { data: userBook, error: progressError } = await supabase
+              .from('user_books')
+              .select('current_page, progress_percentage')
+              .eq('user_id', user.id)
+              .eq('book_id', bookId)
+              .single();
+
+            // Load saved progress if it exists and progress > 0
+            if (!progressError && userBook) {
+              const progress = userBook.progress_percentage || 0;
+              const page = userBook.current_page || 1;
               
-              // Wait a bit for iframe to fully initialize
-              setTimeout(() => {
-                setupPageTracking(frame);
-                // Ensure initial page is set
-                setCurrentPage(1);
-                lastTrackedPageRef.current = 1;
-                isNavigatingRef.current = false;
-                
-                // Test if we can access iframe content
-                try {
-                  if (frame.contentWindow && frame.contentWindow.location) {
-                    console.log('✓ Can access iframe contentWindow - scroll tracking should work!');
-                    console.log('Initial hash:', frame.contentWindow.location.hash);
-                  }
-                } catch (e) {
-                  console.warn('✗ Cannot access iframe contentWindow (CORS):', e.message);
-                  console.warn('Scroll tracking may be limited');
-                }
-              }, 1000);
-            };
-            
-            return true;
-          }
-          return false;
-        };
-        
-        if (!setupFrame()) {
-          setTimeout(() => {
-            if (!setupFrame()) {
-              setError('Could not initialize PDF viewer');
+              if (progress > 0 && page >= 1) {
+                // User has reading progress - resume from saved page
+                savedPage = Math.max(1, page);
+                savedProgress = progress;
+                console.log('Loaded saved reading progress - Page:', savedPage, 'Progress:', savedProgress + '%');
+              } else {
+                // No valid progress - start fresh from page 1
+                savedPage = 1;
+                savedProgress = 0;
+                console.log('No valid reading progress found, starting from page 1');
+              }
+            } else {
+              // No record found - start fresh from page 1
+              savedPage = 1;
+              savedProgress = 0;
+              console.log('No reading progress record found, starting fresh from page 1');
             }
-          }, 100);
+          } catch (err) {
+            // No record found or error - start fresh
+            savedPage = 1;
+            savedProgress = 0;
+            console.log('Error loading reading progress, starting fresh from page 1:', err);
+          }
+        } else {
+          // No user logged in - start from page 1
+          savedPage = 1;
+          savedProgress = 0;
         }
+
+        // Normalize storage path (handle absolute URLs or bucket-prefixed paths)
+        let normalizedPdfPath = pdfFileName.trim();
+        const isExternalPdf = /^https?:\/\//i.test(normalizedPdfPath);
+
+        if (!isExternalPdf) {
+          if (/^Book-storage\//i.test(normalizedPdfPath)) {
+            normalizedPdfPath = normalizedPdfPath.replace(/^Book-storage\//i, '');
+          }
+          if (/^public\//i.test(normalizedPdfPath)) {
+            normalizedPdfPath = normalizedPdfPath.replace(/^public\//i, '');
+          }
+          if (normalizedPdfPath.startsWith('/')) {
+            normalizedPdfPath = normalizedPdfPath.slice(1);
+          }
+        }
+
+        // Set initial page from saved progress
+        lastScrollPageRef.current = savedPage;
+        setCurrentPage(savedPage);
+        
+        const initializePdfViewer = async () => {
+          if (!viewerRef.current) {
+            throw new Error('Viewer container not available');
+          }
+
+          try {
+            setLoading(true);
+            renderingTasksRef.current.forEach((task) => {
+              if (task && typeof task.cancel === 'function') {
+                task.cancel();
+              }
+            });
+            renderingTasksRef.current.clear();
+
+            let arrayBuffer;
+
+            if (isExternalPdf) {
+              const response = await fetch(normalizedPdfPath);
+              if (!response.ok) {
+                throw new Error(`Failed to fetch PDF (${response.status})`);
+              }
+              arrayBuffer = await response.arrayBuffer();
+            } else {
+              // Download PDF as blob from Supabase Storage
+              const { data: pdfBlob, error: downloadError } = await supabase
+                .storage
+                .from('Book-storage')
+                .download(normalizedPdfPath);
+
+              if (downloadError) {
+                console.error('Error downloading PDF:', downloadError);
+                throw new Error(`Failed to download PDF: ${downloadError.message}`);
+              }
+
+              if (!pdfBlob) {
+                throw new Error('PDF file not found in storage');
+              }
+
+              console.log('PDF downloaded successfully, size:', pdfBlob.size, 'bytes');
+
+              // Convert blob to ArrayBuffer for pdf.js
+              arrayBuffer = await pdfBlob.arrayBuffer();
+            }
+            
+            // Load PDF document from ArrayBuffer
+            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+            const pdfDocument = await loadingTask.promise;
+
+            pdfDocRef.current = pdfDocument;
+            setTotalPages(pdfDocument.numPages);
+
+            preparePageContainers(pdfDocument.numPages);
+            
+            // Ensure saved page is within valid range
+            const initialPage = Math.min(savedPage, pdfDocument.numPages);
+            setCurrentPage(initialPage);
+            lastScrollPageRef.current = initialPage;
+
+            // Render initial page and surrounding pages first
+            await renderPageRef.current(initialPage, { force: true });
+            if (initialPage > 1) {
+              await renderPageRef.current(initialPage - 1).catch(() => {});
+            }
+            if (initialPage < pdfDocument.numPages) {
+              await renderPageRef.current(initialPage + 1).catch(() => {});
+            }
+            renderSurroundingPagesRef.current(initialPage);
+            
+            // Scroll to saved page after pages are rendered
+            if (viewerRef.current && initialPage > 1) {
+              // Wait for pages to render and layout to complete
+              setTimeout(() => {
+                const pageElement = pageElementsRef.current.get(initialPage);
+                if (pageElement && viewerRef.current) {
+                  // Scroll to the page element
+                  const container = viewerRef.current;
+                  const elementTop = pageElement.offsetTop;
+                  container.scrollTo({
+                    top: elementTop - 20, // Small offset from top
+                    behavior: 'smooth'
+                  });
+                  console.log('Scrolled to saved page:', initialPage);
+                } else {
+                  console.warn('Could not find page element to scroll to:', initialPage);
+                }
+              }, 800); // Increased timeout to ensure pages are rendered
+            } else if (viewerRef.current) {
+              // Start from page 1 - scroll to top
+              viewerRef.current.scrollTop = 0;
+            }
+            
+            updateCurrentPageFromScrollRef.current();
+          } catch (viewerError) {
+            console.error('Error initializing PDF.js viewer:', viewerError);
+            setError('Error loading PDF. Please check if the file exists.');
+          } finally {
+            setLoading(false);
+          }
+        };
+
+        await initializePdfViewer();
       } catch (e) {
         console.error('Failed to load book:', e);
         setError(e.message);
@@ -344,128 +634,46 @@ const ReaderLocal = () => {
       console.log('Navigation blocked:', page, 'totalPages:', totalPages);
       return;
     }
-    
-    if (currentPage === page) {
-      console.log('Already on page', page);
+
+    if (!viewerRef.current) {
       return;
     }
-    
+
     console.log('Navigating to page:', page, 'from', currentPage);
-    
-    // Mark that we're navigating to prevent page tracking from interfering
-    isNavigatingRef.current = true;
-    lastTrackedPageRef.current = page;
-    
-    // Update page state immediately
-    setCurrentPage(page);
-    
-    if (pdfFrameRef.current && pdfUrlRef.current && viewerRef.current) {
-      const baseUrl = pdfUrlRef.current.split('#')[0];
-      const zoomParam = zoomLevel !== 100 ? `&zoom=${zoomLevel}` : '';
-      const newSrc = baseUrl + `#page=${page}&toolbar=0&navpanes=0&scrollbar=0${zoomParam}`;
-      
-      console.log('Recreating iframe to navigate to page:', page);
-      
-      // Clear tracking interval before removing iframe
-      if (pageTrackingIntervalRef.current) {
-        clearInterval(pageTrackingIntervalRef.current);
-        pageTrackingIntervalRef.current = null;
-      }
-      
-      // Store iframe properties
-      const frameStyle = pdfFrameRef.current.style.cssText;
-      const frameId = pdfFrameRef.current.id;
-      const frameTitle = pdfFrameRef.current.title;
-      const frameAllow = pdfFrameRef.current.allow;
-      
-      // Remove old iframe
-      try {
-        if (pdfFrameRef.current.parentNode) {
-          pdfFrameRef.current.parentNode.removeChild(pdfFrameRef.current);
-        }
-      } catch (e) {
-        console.error('Error removing iframe:', e);
-      }
-      
-      // Create new iframe with new page
-      const newFrame = document.createElement('iframe');
-      newFrame.src = newSrc;
-      newFrame.style.cssText = frameStyle;
-      newFrame.id = frameId;
-      newFrame.title = frameTitle;
-      newFrame.allow = frameAllow;
-      newFrame.style.width = '100%';
-      newFrame.style.height = '100%';
-      newFrame.style.border = 'none';
-      newFrame.style.minHeight = '500px';
-      newFrame.style.transition = 'opacity 0.2s ease';
-      newFrame.style.opacity = '0.5';
-      
-      // Append to viewer
-      viewerRef.current.appendChild(newFrame);
-      pdfFrameRef.current = newFrame;
-      
-      // Re-setup tracking after iframe loads
-      newFrame.onload = () => {
-        console.log('PDF iframe reloaded to page:', page);
-        newFrame.style.opacity = '1';
-        estimateTotalPages(pdfUrlRef.current);
-        setupPageTracking(newFrame);
-        // Allow page tracking to resume
-        setTimeout(() => {
-          isNavigatingRef.current = false;
-        }, 500);
-      };
-      
-      newFrame.onerror = (e) => {
-        console.error('Iframe load error:', e);
-        isNavigatingRef.current = false;
-      };
-    } else {
-      console.warn('PDF frame, URL ref, or viewer ref not available', {
-        hasFrame: !!pdfFrameRef.current,
-        hasUrl: !!pdfUrlRef.current,
-        hasViewer: !!viewerRef.current
-      });
-      isNavigatingRef.current = false;
+
+    if (navigationResetTimeoutRef.current) {
+      clearTimeout(navigationResetTimeoutRef.current);
     }
-  }, [totalPages, zoomLevel, currentPage]);
+
+    setCurrentPage(page);
+    lastScrollPageRef.current = page;
+
+    const targetElement = pageElementsRef.current.get(page);
+    if (targetElement) {
+      renderPageRef.current(page, { force: true }).catch(() => {});
+      renderSurroundingPagesRef.current(page);
+
+      const container = viewerRef.current;
+      const targetOffset = targetElement.offsetTop - container.clientHeight * 0.1;
+
+      container.scrollTo({
+        top: Math.max(targetOffset, 0),
+        behavior: 'smooth'
+      });
+    }
+
+    navigationResetTimeoutRef.current = setTimeout(() => {
+      navigationResetTimeoutRef.current = null;
+    }, 600);
+  }, [currentPage, totalPages]);
 
 
   const handleZoom = (delta) => {
-    const newZoom = Math.max(100, Math.min(200, zoomLevel + delta));
-    setZoomLevel(newZoom);
-    updateZoomInPDF(newZoom);
+    setZoomLevel((prevZoom) => Math.max(100, Math.min(200, prevZoom + delta)));
   };
 
   const resetZoom = () => {
     setZoomLevel(100);
-    updateZoomInPDF(100);
-  };
-
-  const updateZoomInPDF = (zoom) => {
-    if (pdfFrameRef.current && pdfUrlRef.current && currentPage > 0) {
-      const baseUrl = pdfUrlRef.current.split('#')[0];
-      // Try using zoom parameter first
-      const zoomParam = zoom !== 100 ? `&zoom=${zoom}` : '';
-      const newSrc = baseUrl + `#page=${currentPage}&toolbar=0&navpanes=0&scrollbar=0${zoomParam}`;
-      
-      // Update iframe src with zoom parameter
-      pdfFrameRef.current.src = newSrc;
-      
-      // Also apply CSS transform as fallback, centered
-      const scale = zoom / 100;
-      pdfFrameRef.current.style.transform = `scale(${scale})`;
-      pdfFrameRef.current.style.transformOrigin = 'center center';
-      
-      // Adjust container to keep it centered
-      const container = viewerRef.current;
-      if (container) {
-        container.style.display = 'flex';
-        container.style.alignItems = 'center';
-        container.style.justifyContent = 'center';
-      }
-    }
   };
 
   // Dictionary: fetch meaning for a word
@@ -697,7 +905,7 @@ Provide helpful, concise responses about the book considering the context of the
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
               <button 
                 onClick={() => navigate(-1)}
-                className="text-[10px] font-medium uppercase tracking-widest text-dark-gray/60 dark:text-white/60 hover:text-dark-gray dark:hover:text-white transition-colors flex-shrink-0 bg-transparent border-0 cursor-pointer"
+                className="text-[10px] font-medium uppercase tracking-widest text-dark-gray/60 dark:text-white/60 hover:text-dark-gray dark:hover:text-white transition-colors shrink-0 bg-transparent border-0 cursor-pointer"
               >
                 ← Back
               </button>
@@ -714,7 +922,7 @@ Provide helpful, concise responses about the book considering the context of the
                     setSidebarOpen(!sidebarOpen);
                   }
                 }}
-                className="w-8 h-8 bg-transparent border border-dark-gray/30 dark:border-white/30 text-dark-gray dark:text-white flex items-center justify-center hover:bg-dark-gray/5 dark:hover:bg-white/5 transition-colors flex-shrink-0"
+                className="w-8 h-8 bg-transparent border border-dark-gray/30 dark:border-white/30 text-dark-gray dark:text-white flex items-center justify-center hover:bg-dark-gray/5 dark:hover:bg-white/5 transition-colors shrink-0"
                 title={chatbotOpen || imageGenOpen ? "Close" : (sidebarOpen ? "Close Controls" : "Open Controls")}
               >
                 {(sidebarOpen || chatbotOpen || imageGenOpen) ? (
@@ -745,7 +953,7 @@ Provide helpful, concise responses about the book considering the context of the
             <div 
               id="viewer" 
               ref={viewerRef} 
-              className="w-full h-full flex items-center justify-center relative overflow-y-auto overflow-x-hidden"
+              className="w-full h-full relative overflow-y-auto overflow-x-hidden"
             ></div>
             <button 
               className="absolute right-8 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-transparent border-2 border-dark-gray dark:border-white text-dark-gray dark:text-white flex items-center justify-center hover:opacity-80 transition-opacity disabled:opacity-20 disabled:cursor-not-allowed"
@@ -956,7 +1164,7 @@ Provide helpful, concise responses about the book considering the context of the
                   About This Book
                 </div>
                 {bookCover && (
-                  <div className="w-full aspect-[2/3] bg-dark-gray/5 dark:bg-white/5 border border-dark-gray/20 dark:border-white/20 overflow-hidden">
+                  <div className="w-full aspect-2/3 bg-dark-gray/5 dark:bg-white/5 border border-dark-gray/20 dark:border-white/20 overflow-hidden">
                     <img 
                       src={bookCover} 
                       alt={bookTitle}

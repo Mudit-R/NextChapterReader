@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import Header from '../components/Header';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuth } from '../contexts/AuthContext';
 import { Star, BookOpen, Bookmark, CheckCircle, MessageSquare, Plus, Minus } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 
@@ -9,12 +10,14 @@ const BookDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isDark } = useTheme();
+  const { user } = useAuth();
   
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
   const [rating, setRating] = useState(0);
   const [userRating, setUserRating] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [currentPage, setCurrentPage] = useState(0);
   const [isInReadingList, setIsInReadingList] = useState(false);
   const [isRead, setIsRead] = useState(false);
   const [activeTab, setActiveTab] = useState('reviews');
@@ -26,7 +29,7 @@ const BookDetailPage = () => {
   useEffect(() => {
     loadBook();
     loadUserData();
-  }, [id]);
+  }, [id, user]);
 
   const loadBook = async () => {
     setLoading(true);
@@ -73,7 +76,8 @@ const BookDetailPage = () => {
     }
   };
 
-  const loadUserData = () => {
+  const loadUserData = async () => {
+    // Load from localStorage for backward compatibility
     const wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
     const read = JSON.parse(localStorage.getItem('read') || '[]');
     setIsInReadingList(wishlist.includes(id));
@@ -84,6 +88,50 @@ const BookDetailPage = () => {
     const savedDiscussions = JSON.parse(localStorage.getItem(`book_discussions_${id}`) || '[]');
     setReviews(savedReviews);
     setDiscussions(savedDiscussions);
+
+    // Load reading progress from database if user is logged in
+    if (user && user.id && id) {
+      try {
+        const { data: userBook, error } = await supabase
+          .from('user_books')
+          .select('current_page, progress_percentage, status')
+          .eq('user_id', user.id)
+          .eq('book_id', id)
+          .single();
+
+        if (!error && userBook) {
+          const dbProgress = Math.round(userBook.progress_percentage || 0);
+          if (dbProgress > 0) {
+            setProgress(dbProgress);
+          }
+          if (userBook.current_page) {
+            setCurrentPage(userBook.current_page);
+          }
+          if (userBook.status === 'read' || dbProgress >= 100) {
+            setIsRead(true);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not load reading progress from database:', err);
+        // Fallback to localStorage
+        const savedProgress = parseInt(localStorage.getItem(`book_progress_${id}`) || '0', 10);
+        if (savedProgress) {
+          setProgress(savedProgress);
+          if (savedProgress >= 100) {
+            setIsRead(true);
+          }
+        }
+      }
+    } else {
+      // Fallback to localStorage for non-logged-in users
+      const savedProgress = parseInt(localStorage.getItem(`book_progress_${id}`) || '0', 10);
+      if (savedProgress) {
+        setProgress(savedProgress);
+        if (savedProgress >= 100) {
+          setIsRead(true);
+        }
+      }
+    }
   };
 
   const handleRating = (value) => {
@@ -98,9 +146,19 @@ const BookDetailPage = () => {
   };
 
   const handleProgressChange = (value) => {
-    setProgress(value);
-    localStorage.setItem(`book_progress_${id}`, value.toString());
+    const normalizedValue = Math.min(100, Math.max(0, value));
+    setProgress(normalizedValue);
+    localStorage.setItem(`book_progress_${id}`, normalizedValue.toString());
+    if (normalizedValue >= 100) {
+      setIsRead(true);
+    }
   };
+
+  useEffect(() => {
+    if (progress >= 100) {
+      setIsRead(true);
+    }
+  }, [progress]);
 
   const toggleReadingList = () => {
     const wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
@@ -194,6 +252,7 @@ const BookDetailPage = () => {
 
   // Extract genre from subjects array or use genre field if available
   const genre = book.genre || book.subjects?.[0] || book.subjects || 'Fiction';
+  const isFullyRead = progress >= 100 || isRead;
 
   return (
     <div className="min-h-screen bg-dark-gray dark:bg-white">
@@ -232,7 +291,7 @@ const BookDetailPage = () => {
                     className="w-full bg-white dark:bg-dark-gray text-dark-gray dark:text-white border-2 border-white dark:border-dark-gray px-6 py-3 text-xs font-medium uppercase tracking-widest hover:opacity-80 transition-opacity flex items-center justify-center gap-2"
                   >
                     <BookOpen className="w-3.5 h-3.5" />
-                    Read Now
+                    {progress > 0 && currentPage > 0 ? 'Continue Reading' : 'Read Now'}
                   </button>
                   
                   <button
@@ -257,15 +316,20 @@ const BookDetailPage = () => {
                   </button>
                   
                   <button
-                    onClick={toggleMarkAsRead}
-                    className={`w-full border-2 px-4 py-2.5 text-[10px] font-medium uppercase tracking-widest transition-opacity hover:opacity-80 flex items-center justify-center gap-2 ${
-                      isRead
+                    onClick={() => {
+                      if (!isFullyRead) {
+                        toggleMarkAsRead();
+                      }
+                    }}
+                    disabled={isFullyRead}
+                    className={`w-full border-2 px-4 py-2.5 text-[10px] font-medium uppercase tracking-widest transition-opacity flex items-center justify-center gap-2 ${
+                      isFullyRead
                         ? 'bg-white dark:bg-dark-gray text-dark-gray dark:text-white border-white dark:border-dark-gray'
-                        : 'bg-transparent text-white dark:text-dark-gray border-white dark:border-dark-gray'
-                    }`}
+                        : 'bg-transparent text-white dark:text-dark-gray border-white dark:border-dark-gray hover:opacity-80'
+                    } disabled:opacity-40 disabled:cursor-not-allowed`}
                   >
                     <CheckCircle className="w-3 h-3" />
-                    {isRead ? 'Mark as Unread' : 'Mark as Read'}
+                    {isFullyRead ? 'Already Read' : 'Mark as Read'}
                   </button>
                 </div>
               </div>
