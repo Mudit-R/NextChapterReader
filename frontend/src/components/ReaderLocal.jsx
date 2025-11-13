@@ -26,6 +26,11 @@ const ReaderLocal = () => {
   const [imagePrompt, setImagePrompt] = useState('');
   const [imageGenResult, setImageGenResult] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Dictionary states
+  const [word, setWord] = useState('');
+  const [definition, setDefinition] = useState('');
+  const [dictLoading, setDictLoading] = useState(false);
+  const [dictError, setDictError] = useState('');
   
   const pdfFrameRef = useRef(null);
   const viewerRef = useRef(null);
@@ -462,6 +467,26 @@ const ReaderLocal = () => {
     }
   };
 
+  // Dictionary: fetch meaning for a word
+  const fetchMeaning = async (w) => {
+    const query = (w || '').trim();
+    if (!query) return;
+    setDictLoading(true);
+    setDictError('');
+    setDefinition('');
+    try {
+      const res = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(query)}`);
+      const data = await res.json();
+      if (!Array.isArray(data)) throw new Error('No definition found');
+      const def = data[0]?.meanings?.[0]?.definitions?.[0]?.definition;
+      setDefinition(def || 'Meaning not available');
+    } catch (e) {
+      setDictError('Could not fetch meaning. Try another word.');
+    } finally {
+      setDictLoading(false);
+    }
+  };
+
   const handleChatSend = async () => {
     if (!chatbotInput.trim() || !apiKey) return;
     
@@ -880,6 +905,46 @@ Provide helpful, concise responses about the book considering the context of the
                   <ImageIcon className="w-3.5 h-3.5" />
                   <span className="text-[10px] font-medium uppercase tracking-widest">Image</span>
                 </button>
+              </div>
+            </div>
+
+            {/* Dictionary */}
+            <div className="space-y-2 pt-4 pb-1 border-b border-dark-gray/10 dark:border-white/10">
+              <div className="text-[10px] font-medium uppercase tracking-widest text-dark-gray/60 dark:text-white/60">
+                Dictionary
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  className="flex-1 bg-transparent border border-dark-gray/30 dark:border-white/30 px-3 py-2 text-xs text-dark-gray dark:text-white placeholder-dark-gray/40 dark:placeholder-white/40 focus:outline-none focus:border-dark-gray dark:focus:border-white transition-colors"
+                  value={word}
+                  onChange={(e) => setWord(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      fetchMeaning(word);
+                    }
+                  }}
+                  placeholder="Enter a word to look up…"
+                />
+                <button
+                  className="bg-dark-gray dark:bg-white text-white dark:text-dark-gray border border-dark-gray dark:border-white px-3 py-2 text-[10px] font-medium uppercase tracking-widest hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                  onClick={() => fetchMeaning(word)}
+                  disabled={!word.trim()}
+                >
+                  Search
+                </button>
+              </div>
+              <div className="text-xs text-dark-gray/80 dark:text-white/80">
+                {dictLoading && <div>Loading…</div>}
+                {dictError && <div className="text-red-500">{dictError}</div>}
+                {!dictLoading && !dictError && definition && (
+                  <div className="bg-dark-gray/5 dark:bg-white/5 border border-dark-gray/20 dark:border-white/20 p-2 rounded">
+                    {definition}
+                  </div>
+                )}
+              </div>
+              <div className="text-[10px] text-dark-gray/60 dark:text-white/60">
+                Note: Selecting text inside the PDF may not be accessible due to browser security. Type the word here to look it up.
               </div>
             </div>
             
