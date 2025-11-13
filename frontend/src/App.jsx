@@ -15,6 +15,7 @@ import Gallery from './components/Gallery'
 import GalleryLocal from './components/GalleryLocal'
 import Reader from './components/Reader'
 import ReaderLocal from './components/ReaderLocal'
+import Admin from './components/Admin'
 import OAuthCallbackHandler from './components/OAuthCallbackHandler'
 import ProtectedRoute from './components/ProtectedRoute'
 
@@ -118,6 +119,14 @@ function App() {
           element={
             <ProtectedRoute>
               <ReaderLocal />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin" 
+          element={
+            <ProtectedRoute>
+              <Admin />
             </ProtectedRoute>
           } 
         />

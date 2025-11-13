@@ -54,3 +54,30 @@ export async function getUserProfile(userId) {
   }
 }
 
+/**
+ * Check if user is an admin
+ * @param {string} userId - User ID from auth
+ * @returns {Promise<boolean>} - True if user is admin
+ */
+export async function isAdmin(userId) {
+  if (!userId) return false
+  
+  try {
+    const { data, error } = await supabase
+      .from('user_profiles')
+      .select('is_admin')
+      .eq('user_id', userId)
+      .single()
+    
+    if (error && error.code !== 'PGRST116') {
+      console.error('Error checking admin status:', error)
+      return false
+    }
+    
+    return data && data.is_admin === true
+  } catch (error) {
+    console.error('Error checking admin status:', error)
+    return false
+  }
+}
+
