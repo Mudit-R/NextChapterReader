@@ -40,6 +40,12 @@ const ReaderLocal = () => {
   const [definition, setDefinition] = useState('');
   const [dictLoading, setDictLoading] = useState(false);
   const [dictError, setDictError] = useState('');
+  const [audioUrl, setAudioUrl] = useState('');
+  const [audioLoading, setAudioLoading] = useState(false);
+  const [audioError, setAudioError] = useState('');
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioTime, setAudioTime] = useState(0);
+  const [audioDuration, setAudioDuration] = useState(0);
   
   const viewerRef = useRef(null);
   const pdfDocRef = useRef(null);
@@ -206,6 +212,7 @@ const ReaderLocal = () => {
   const renderPageRef = useRef(renderPage);
   const renderSurroundingPagesRef = useRef(renderSurroundingPages);
   const updateCurrentPageFromScrollRef = useRef(updateCurrentPageFromScroll);
+  const audioRef = useRef(null);
 
   useEffect(() => {
     renderPageRef.current = renderPage;
@@ -610,6 +617,40 @@ const ReaderLocal = () => {
         };
 
         await initializePdfViewer();
+
+        const resolveAudio = async (title) => {
+          const bucket = supabase.storage.from('audiobook_mp3');
+          const makeSlug = (t) => t.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+          const trimmed = title.trim();
+          const candidates = [
+            `${trimmed}.mp3`,
+            `${makeSlug(trimmed)}.mp3`,
+            `${trimmed.replace(/\s+/g, ' ')}.mp3`,
+          ];
+          const headOk = async (url) => {
+            try {
+              const resp = await fetch(url, { method: 'HEAD' });
+              return resp.ok;
+            } catch { return false; }
+          };
+          try {
+            setAudioLoading(true);
+            setAudioError('');
+            for (const key of candidates) {
+              const pub = bucket.getPublicUrl(key)?.data?.publicUrl;
+              if (pub && await headOk(pub)) { setAudioUrl(pub); return; }
+            }
+            setAudioError('Audiobook not available');
+          } catch (e) {
+            setAudioError('Audiobook not available');
+          } finally {
+            setAudioLoading(false);
+          }
+        };
+
+        if (book.title) {
+          await resolveAudio(book.title);
+        }
       } catch (e) {
         console.error('Failed to load book:', e);
         setError(e.message);
@@ -674,6 +715,41 @@ const ReaderLocal = () => {
 
   const resetZoom = () => {
     setZoomLevel(100);
+  };
+
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    const onTime = () => setAudioTime(el.currentTime || 0);
+    const onMeta = () => setAudioDuration(el.duration || 0);
+    const onEnd = () => setIsPlaying(false);
+    el.addEventListener('timeupdate', onTime);
+    el.addEventListener('loadedmetadata', onMeta);
+    el.addEventListener('ended', onEnd);
+    return () => {
+      el.removeEventListener('timeupdate', onTime);
+      el.removeEventListener('loadedmetadata', onMeta);
+      el.removeEventListener('ended', onEnd);
+    };
+  }, [audioUrl]);
+
+  const togglePlay = () => {
+    const el = audioRef.current;
+    if (!el) return;
+    if (isPlaying) {
+      el.pause();
+      setIsPlaying(false);
+    } else {
+      el.play().then(() => setIsPlaying(true)).catch(() => {});
+    }
+  };
+
+  const onSeek = (e) => {
+    const el = audioRef.current;
+    if (!el) return;
+    const v = Number(e.target.value) || 0;
+    el.currentTime = v;
+    setAudioTime(v);
   };
 
   // Dictionary: fetch meaning for a word
@@ -1057,6 +1133,47 @@ Provide helpful, concise responses about the book considering the context of the
               </div>
             </div>
             
+            {/* Audiobook */}
+            <div className="space-y-2 pt-4 pb-4 border-b border-dark-gray/10 dark:border-white/10">
+              <div className="text-[10px] font-medium uppercase tracking-widest text-dark-gray/60 dark:text-white/60">
+                Audiobook
+              </div>
+              {audioLoading && (
+                <div className="text-xs text-dark-gray/60 dark:text-white/60">Loading audiobook…</div>
+              )}
+              {audioError && (
+                <div className="text-xs text-red-500">{audioError}</div>
+              )}
+              {!audioLoading && !audioError && audioUrl && (
+                <div className="space-y-2">
+                  <audio ref={audioRef} src={audioUrl} preload="metadata" />
+                  <div className="flex items-center gap-2">
+                    <button 
+                      className="px-3 py-1.5 bg-dark-gray dark:bg-white text-white dark:text-dark-gray border border-dark-gray dark:border-white text-[10px] font-medium uppercase tracking-widest hover:opacity-80 transition-opacity"
+                      onClick={togglePlay}
+                    >
+                      {isPlaying ? 'Pause' : 'Play'}
+                    </button>
+                    <div className="text-[10px] text-dark-gray/60 dark:text-white/60 min-w-[70px] text-right">
+                      {Math.floor(audioTime / 60)}:{String(Math.floor(audioTime % 60)).padStart(2, '0')}
+                    </div>
+                    <input
+                      type="range"
+                      min="0"
+                      max={audioDuration || 0}
+                      step="1"
+                      value={Math.min(audioTime, audioDuration || 0)}
+                      onChange={onSeek}
+                      className="flex-1"
+                    />
+                    <div className="text-[10px] text-dark-gray/60 dark:text-white/60 min-w-[70px]">
+                      {Math.floor(audioDuration / 60)}:{String(Math.floor((audioDuration % 60) || 0)).padStart(2, '0')}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Zoom */}
             <div className="space-y-2 pt-4 pb-4 border-b border-dark-gray/10 dark:border-white/10">
               <div className="text-[10px] font-medium uppercase tracking-widest text-dark-gray/60 dark:text-white/60">
