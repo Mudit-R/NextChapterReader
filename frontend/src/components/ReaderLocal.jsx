@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowRight, Moon, Sun, ZoomIn, ZoomOut, RotateCcw, MessageSq
 import { supabase } from '../lib/supabaseClient';
 import * as pdfjsLib from 'pdfjs-dist/build/pdf';
 import pdfjsWorker from 'pdfjs-dist/build/pdf.worker?url';
+import usePdfRenderer from '../pdf/usePdfRenderer';
 
 if (pdfjsLib?.GlobalWorkerOptions) {
   pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
@@ -49,220 +50,75 @@ const ReaderLocal = () => {
   const [audioDuration, setAudioDuration] = useState(0);
   
   const viewerRef = useRef(null);
-  const pdfDocRef = useRef(null);
-  const pageElementsRef = useRef(new Map());
-  const canvasMapRef = useRef(new Map());
-  const renderingTasksRef = useRef(new Map());
-  const pageScaleCacheRef = useRef(new Map());
-  const scrollAnimationFrameRef = useRef(null);
   const headerRef = useRef(null);
   const lastScrollPageRef = useRef(1);
   const navigationResetTimeoutRef = useRef(null);
 
+  // Hook-based virtual PDF renderer (initialized inside component)
+  const {
+    loadPdf,
+    currentPage: hookCurrentPage,
+    totalPages: hookTotalPages,
+    zoom: hookZoom,
+    setZoom: hookSetZoom,
+    navigateToPage: hookNavigateToPage,
+    containerRef: pdfContainerRef,
+  } = usePdfRenderer({
+    initialPage: 1,
+    onPageChange: (p, t) => {
+      setCurrentPage(p);
+      if (t) setTotalPages(t);
+    },
+    onProgressUpdate: (p, t) => {
+      setCurrentPage(p);
+      if (t) setTotalPages(t);
+    },
+    lruLimit: 4,
+    eagerAllPages: true,
+  });
+
+  // Sync hook container with existing viewerRef without changing JSX
+  useEffect(() => {
+    pdfContainerRef.current = viewerRef.current;
+  });
+
+  // Keep UI zoom/page counters in sync with hook
+  useEffect(() => { 
+    if (hookZoom && hookZoom !== zoomLevel) {
+      console.log('Syncing zoom from hook:', hookZoom);
+      setZoomLevel(hookZoom); 
+    }
+  }, [hookZoom, zoomLevel]);
+  
+  useEffect(() => { 
+    if (hookCurrentPage && hookCurrentPage !== currentPage) {
+      console.log('Syncing current page from hook:', hookCurrentPage);
+      setCurrentPage(hookCurrentPage); 
+    }
+  }, [hookCurrentPage, currentPage]);
+  
+  useEffect(() => { 
+    if (hookTotalPages && hookTotalPages !== totalPages) {
+      console.log('Syncing total pages from hook:', hookTotalPages);
+      setTotalPages(hookTotalPages); 
+    }
+  }, [hookTotalPages, totalPages]);
+
   useEffect(() => {
     return () => {
-      renderingTasksRef.current.forEach((task) => {
-        if (task && typeof task.cancel === 'function') {
-          task.cancel();
-        }
-      });
-      renderingTasksRef.current.clear();
-      if (scrollAnimationFrameRef.current) {
-        cancelAnimationFrame(scrollAnimationFrameRef.current);
-      }
       if (navigationResetTimeoutRef.current) {
         clearTimeout(navigationResetTimeoutRef.current);
       }
     };
   }, []);
 
-  const preparePageContainers = useCallback((pageCount) => {
-    if (!viewerRef.current) return;
 
-    viewerRef.current.innerHTML = '';
-    pageElementsRef.current = new Map();
-    canvasMapRef.current = new Map();
-    pageScaleCacheRef.current = new Map();
 
-    const container = document.createElement('div');
-    container.className = 'pdf-pages-container w-full flex flex-col items-center gap-8 py-8';
-    viewerRef.current.appendChild(container);
 
-    const fragment = document.createDocumentFragment();
-    for (let pageNum = 1; pageNum <= pageCount; pageNum += 1) {
-      const wrapper = document.createElement('div');
-      wrapper.dataset.pageNumber = pageNum.toString();
-      wrapper.className = 'pdf-page-wrapper w-full flex justify-center relative px-4';
 
-      const canvas = document.createElement('canvas');
-      canvas.className = 'pdf-page-canvas shadow-lg border border-dark-gray/10 dark:border-white/10 bg-white';
-      canvas.style.maxWidth = '900px';
-      canvas.style.width = '100%';
-      canvas.style.height = 'auto';
-
-      wrapper.appendChild(canvas);
-      fragment.appendChild(wrapper);
-
-      pageElementsRef.current.set(pageNum, wrapper);
-      canvasMapRef.current.set(pageNum, canvas);
-    }
-
-    container.appendChild(fragment);
-  }, []);
-
-  const renderPage = useCallback(async (pageNumber, { force = false } = {}) => {
-    if (!pdfDocRef.current) return;
-    if (!canvasMapRef.current.has(pageNumber)) return;
-
-    const cachedScale = pageScaleCacheRef.current.get(pageNumber);
-    if (!force && cachedScale === zoomLevel) {
-      return;
-    }
-
-    pageScaleCacheRef.current.set(pageNumber, zoomLevel);
-
-    const existingTask = renderingTasksRef.current.get(pageNumber);
-    if (existingTask && typeof existingTask.cancel === 'function') {
-      existingTask.cancel();
-    }
-    renderingTasksRef.current.delete(pageNumber);
-
-    try {
-      const page = await pdfDocRef.current.getPage(pageNumber);
-      const scale = zoomLevel / 100;
-      const viewport = page.getViewport({ scale });
-      const canvas = canvasMapRef.current.get(pageNumber);
-      const context = canvas.getContext('2d', { alpha: false });
-
-      if (!context) {
-        console.warn(`Canvas context missing for page ${pageNumber}`);
-        return;
-      }
-
-      const outputScale = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-      canvas.width = viewport.width * outputScale;
-      canvas.height = viewport.height * outputScale;
-      canvas.style.width = `${viewport.width}px`;
-      canvas.style.height = `${viewport.height}px`;
-
-      context.setTransform(outputScale, 0, 0, outputScale, 0, 0);
-      context.imageSmoothingQuality = 'high';
-      context.fillStyle = '#ffffff';
-      context.fillRect(0, 0, canvas.width, canvas.height);
-
-      const renderTask = page.render({ canvasContext: context, viewport });
-      renderingTasksRef.current.set(pageNumber, renderTask);
-      await renderTask.promise;
-    } catch (error) {
-      if (error?.name !== 'RenderingCancelledException') {
-        console.error(`Failed to render page ${pageNumber}`, error);
-      }
-    } finally {
-      renderingTasksRef.current.delete(pageNumber);
-    }
-  }, [zoomLevel]);
-
-  const renderSurroundingPages = useCallback((pageNumber) => {
-    if (!pdfDocRef.current) return;
-
-    const pagesToRender = new Set([pageNumber]);
-    if (pageNumber > 1) pagesToRender.add(pageNumber - 1);
-    if (pageNumber < pdfDocRef.current.numPages) pagesToRender.add(pageNumber + 1);
-    if (pageNumber > 2) pagesToRender.add(pageNumber - 2);
-    if (pageNumber < pdfDocRef.current.numPages - 1) pagesToRender.add(pageNumber + 2);
-
-    pagesToRender.forEach((page) => {
-      if (canvasMapRef.current.has(page)) {
-        renderPage(page).catch((error) => {
-          if (error?.name !== 'RenderingCancelledException') {
-            console.error(`Error rendering page ${page}`, error);
-          }
-        });
-      }
-    });
-  }, [renderPage]);
-
-  const updateCurrentPageFromScroll = useCallback(() => {
-    if (!viewerRef.current || !pdfDocRef.current) return;
-    const container = viewerRef.current;
-    const scrollTop = container.scrollTop;
-    const viewCenter = scrollTop + container.clientHeight / 2;
-
-    let closestPage = lastScrollPageRef.current;
-    let minDistance = Number.POSITIVE_INFINITY;
-
-    pageElementsRef.current.forEach((element, pageNum) => {
-      const offsetTop = element.offsetTop;
-      const height = element.offsetHeight || 1;
-      const pageCenter = offsetTop + height / 2;
-      const distance = Math.abs(pageCenter - viewCenter);
-
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestPage = pageNum;
-      }
-    });
-
-    if (closestPage !== lastScrollPageRef.current) {
-      lastScrollPageRef.current = closestPage;
-      setCurrentPage((prev) => (prev !== closestPage ? closestPage : prev));
-      renderSurroundingPages(closestPage);
-    }
-  }, [renderSurroundingPages]);
-
-  const renderPageRef = useRef(renderPage);
-  const renderSurroundingPagesRef = useRef(renderSurroundingPages);
-  const updateCurrentPageFromScrollRef = useRef(updateCurrentPageFromScroll);
   const audioRef = useRef(null);
 
-  useEffect(() => {
-    renderPageRef.current = renderPage;
-  }, [renderPage]);
 
-  useEffect(() => {
-    renderSurroundingPagesRef.current = renderSurroundingPages;
-  }, [renderSurroundingPages]);
-
-  useEffect(() => {
-    updateCurrentPageFromScrollRef.current = updateCurrentPageFromScroll;
-  }, [updateCurrentPageFromScroll]);
-
-  useEffect(() => {
-    if (!viewerRef.current) return;
-    const container = viewerRef.current;
-
-    const handleScroll = () => {
-      if (scrollAnimationFrameRef.current) {
-        cancelAnimationFrame(scrollAnimationFrameRef.current);
-      }
-
-      scrollAnimationFrameRef.current = requestAnimationFrame(() => {
-        updateCurrentPageFromScroll();
-        scrollAnimationFrameRef.current = null;
-      });
-    };
-
-    container.addEventListener('scroll', handleScroll, { passive: true });
-
-    return () => {
-      container.removeEventListener('scroll', handleScroll);
-      if (scrollAnimationFrameRef.current) {
-        cancelAnimationFrame(scrollAnimationFrameRef.current);
-        scrollAnimationFrameRef.current = null;
-      }
-    };
-  }, [updateCurrentPageFromScroll]);
-
-  useEffect(() => {
-    if (!pdfDocRef.current) return;
-    const renderedPages = Array.from(pageScaleCacheRef.current.keys());
-    renderedPages.forEach((page) => {
-      renderPageRef.current(page, { force: true }).catch(() => {});
-    });
-    if (currentPage > 0) {
-      renderSurroundingPagesRef.current(currentPage);
-    }
-  }, [zoomLevel, currentPage]);
 
   // Save reading progress to database and localStorage
   useEffect(() => {
@@ -524,12 +380,11 @@ const ReaderLocal = () => {
 
           try {
             setLoading(true);
-            renderingTasksRef.current.forEach((task) => {
-              if (task && typeof task.cancel === 'function') {
-                task.cancel();
-              }
-            });
-            renderingTasksRef.current.clear();
+            
+            // Clear any existing content in viewer
+            if (viewerRef.current) {
+              viewerRef.current.innerHTML = '';
+            }
 
             let arrayBuffer;
 
@@ -557,58 +412,24 @@ const ReaderLocal = () => {
 
               console.log('PDF downloaded successfully, size:', pdfBlob.size, 'bytes');
 
-              // Convert blob to ArrayBuffer for pdf.js
+              // Convert blob to ArrayBuffer
               arrayBuffer = await pdfBlob.arrayBuffer();
             }
             
-            // Load PDF document from ArrayBuffer
-            const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-            const pdfDocument = await loadingTask.promise;
-
-            pdfDocRef.current = pdfDocument;
-            setTotalPages(pdfDocument.numPages);
-
-            preparePageContainers(pdfDocument.numPages);
+            console.log('Loading PDF with hook renderer...');
+            // Load into virtual renderer (hook instance set at top of component)
+            const totalPagesLoaded = await loadPdf(arrayBuffer);
+            console.log('PDF loaded successfully, total pages:', totalPagesLoaded);
             
-            // Ensure saved page is within valid range
-            const initialPage = Math.min(savedPage, pdfDocument.numPages);
-            setCurrentPage(initialPage);
-            lastScrollPageRef.current = initialPage;
-
-            // Render initial page and surrounding pages first
-            await renderPageRef.current(initialPage, { force: true });
-            if (initialPage > 1) {
-              await renderPageRef.current(initialPage - 1).catch(() => {});
-            }
-            if (initialPage < pdfDocument.numPages) {
-              await renderPageRef.current(initialPage + 1).catch(() => {});
-            }
-            renderSurroundingPagesRef.current(initialPage);
+            // Navigate to saved page after load with a small delay to ensure DOM is ready
+            setTimeout(() => {
+              const initialPage = Math.max(1, Math.min(savedPage, totalPagesLoaded));
+              console.log('Navigating to initial page:', initialPage);
+              setCurrentPage(initialPage);
+              lastScrollPageRef.current = initialPage;
+              hookNavigateToPage(initialPage);
+            }, 100);
             
-            // Scroll to saved page after pages are rendered
-            if (viewerRef.current && initialPage > 1) {
-              // Wait for pages to render and layout to complete
-              setTimeout(() => {
-                const pageElement = pageElementsRef.current.get(initialPage);
-                if (pageElement && viewerRef.current) {
-                  // Scroll to the page element
-                  const container = viewerRef.current;
-                  const elementTop = pageElement.offsetTop;
-                  container.scrollTo({
-                    top: elementTop - 20, // Small offset from top
-                    behavior: 'smooth'
-                  });
-                  console.log('Scrolled to saved page:', initialPage);
-                } else {
-                  console.warn('Could not find page element to scroll to:', initialPage);
-                }
-              }, 800); // Increased timeout to ensure pages are rendered
-            } else if (viewerRef.current) {
-              // Start from page 1 - scroll to top
-              viewerRef.current.scrollTop = 0;
-            }
-            
-            updateCurrentPageFromScrollRef.current();
           } catch (viewerError) {
             console.error('Error initializing PDF.js viewer:', viewerError);
             setError('Error loading PDF. Please check if the file exists.');
@@ -676,46 +497,27 @@ const ReaderLocal = () => {
       console.log('Navigation blocked:', page, 'totalPages:', totalPages);
       return;
     }
-
-    if (!viewerRef.current) {
-      return;
-    }
-
-    console.log('Navigating to page:', page, 'from', currentPage);
-
     if (navigationResetTimeoutRef.current) {
       clearTimeout(navigationResetTimeoutRef.current);
     }
-
     setCurrentPage(page);
     lastScrollPageRef.current = page;
-
-    const targetElement = pageElementsRef.current.get(page);
-    if (targetElement) {
-      renderPageRef.current(page, { force: true }).catch(() => {});
-      renderSurroundingPagesRef.current(page);
-
-      const container = viewerRef.current;
-      const targetOffset = targetElement.offsetTop - container.clientHeight * 0.1;
-
-      container.scrollTo({
-        top: Math.max(targetOffset, 0),
-        behavior: 'smooth'
-      });
-    }
-
+    hookNavigateToPage(page);
     navigationResetTimeoutRef.current = setTimeout(() => {
       navigationResetTimeoutRef.current = null;
     }, 600);
-  }, [currentPage, totalPages]);
+  }, [currentPage, totalPages, hookNavigateToPage]);
 
 
   const handleZoom = (delta) => {
-    setZoomLevel((prevZoom) => Math.max(100, Math.min(200, prevZoom + delta)));
+    const next = Math.max(50, Math.min(200, zoomLevel + delta));
+    setZoomLevel(next);
+    hookSetZoom(next);
   };
 
   const resetZoom = () => {
     setZoomLevel(100);
+    hookSetZoom(100);
   };
 
   useEffect(() => {
@@ -977,7 +779,7 @@ Provide helpful, concise responses about the book considering the context of the
       <div className={`min-h-screen ${readerTheme === 'dark' ? 'bg-dark-gray' : 'bg-white'} ${readerTheme === 'reader' ? 'bg-black reader-mode' : ''}`}>
         {readerTheme === 'reader' && (
           <style>{`
-            .reader-mode .pdf-page-canvas { filter: invert(1) hue-rotate(180deg); }
+            .reader-mode .pdf-canvas, .reader-mode .pdf-thumb { filter: invert(1) hue-rotate(180deg); }
           `}</style>
         )}
         <div className="flex h-screen">
@@ -1020,7 +822,7 @@ Provide helpful, concise responses about the book considering the context of the
           {/* PDF Viewer */}
           <div className={`flex-1 relative overflow-hidden ${readerTheme === 'reader' ? 'bg-black' : 'bg-white/5 dark:bg-dark-gray/5'}`}>
             <button 
-              className="absolute left-8 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-transparent border-2 border-dark-gray dark:border-white text-dark-gray dark:text-white flex items-center justify-center hover:opacity-80 transition-opacity disabled:opacity-20 disabled:cursor-not-allowed"
+              className={`absolute left-8 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-transparent border-2 border-dark-gray dark:border-white text-dark-gray dark:text-white flex items-center justify-center hover:opacity-80 transition-opacity disabled:opacity-20 disabled:cursor-not-allowed ${loading ? 'opacity-0 pointer-events-none' : ''}`}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
@@ -1036,10 +838,10 @@ Provide helpful, concise responses about the book considering the context of the
             <div 
               id="viewer" 
               ref={viewerRef} 
-              className="w-full h-full relative overflow-y-auto overflow-x-hidden"
+              className={`w-full h-full relative overflow-y-auto overflow-x-hidden ${loading ? 'invisible' : ''}`}
             ></div>
             <button 
-              className="absolute right-8 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-transparent border-2 border-dark-gray dark:border-white text-dark-gray dark:text-white flex items-center justify-center hover:opacity-80 transition-opacity disabled:opacity-20 disabled:cursor-not-allowed"
+              className={`absolute right-8 top-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-transparent border-2 border-dark-gray dark:border-white text-dark-gray dark:text-white flex items-center justify-center hover:opacity-80 transition-opacity disabled:opacity-20 disabled:cursor-not-allowed ${loading ? 'opacity-0 pointer-events-none' : ''}`}
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
