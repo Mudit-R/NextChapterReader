@@ -1,13 +1,24 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
 
-function CurrentlyReadingCard() {
+function CurrentlyReadingCard({ currentlyReading: propCurrentlyReading = [] }) {
   const [readingBooks, setReadingBooks] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadCurrentlyReading()
-  }, [])
+    if (propCurrentlyReading && propCurrentlyReading.length > 0) {
+      // Use provided data
+      const booksWithProgress = propCurrentlyReading.slice(0, 5).map(book => ({
+        ...book,
+        progress: book.progress || 0
+      })).filter(book => book.progress > 0 && book.progress < 100)
+      setReadingBooks(booksWithProgress)
+      setLoading(false)
+    } else {
+      // Fallback to loading from localStorage
+      loadCurrentlyReading()
+    }
+  }, [propCurrentlyReading])
 
   const loadCurrentlyReading = async () => {
     try {
@@ -48,12 +59,7 @@ function CurrentlyReadingCard() {
       setReadingBooks(booksWithProgress)
     } catch (error) {
       console.error('Error loading currently reading books:', error)
-      // Use demo data if API fails
-      setReadingBooks([
-        { id: 1, title: 'The Catcher in the Rye', author: 'J.D. Salinger', progress: 65, cover_image: 'https://via.placeholder.com/64x64?text=Book' },
-        { id: 2, title: 'Pride and Prejudice', author: 'Jane Austen', progress: 42, cover_image: 'https://via.placeholder.com/64x64?text=Book' },
-        { id: 3, title: 'The Hobbit', author: 'J.R.R. Tolkien', progress: 78, cover_image: 'https://via.placeholder.com/64x64?text=Book' }
-      ])
+      setReadingBooks([])
     } finally {
       setLoading(false)
     }

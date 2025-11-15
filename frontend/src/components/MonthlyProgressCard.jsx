@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import { useTheme } from '../contexts/ThemeContext'
 
-function MonthlyProgressCard() {
+function MonthlyProgressCard({ monthlyData: propMonthlyData = null, readingStats: propReadingStats = null }) {
+  const { isDark } = useTheme()
   const [monthlyData, setMonthlyData] = useState([])
   const [totalBooks, setTotalBooks] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
@@ -9,8 +11,22 @@ function MonthlyProgressCard() {
   const [hoveredMonth, setHoveredMonth] = useState(null)
 
   useEffect(() => {
-    loadMonthlyData()
-  }, [])
+    if (propMonthlyData && propMonthlyData.length > 0) {
+      // Use provided data
+      setMonthlyData(propMonthlyData)
+      if (propReadingStats) {
+        setTotalBooks(propReadingStats.totalBooks || 0)
+        setTotalPages(propReadingStats.totalPages || 0)
+      } else {
+        setTotalBooks(propMonthlyData.reduce((sum, m) => sum + m.books, 0))
+        setTotalPages(propMonthlyData.reduce((sum, m) => sum + m.pages, 0))
+      }
+      setLoading(false)
+    } else {
+      // Fallback to loading from database/localStorage
+      loadMonthlyData()
+    }
+  }, [propMonthlyData, propReadingStats])
 
   const loadMonthlyData = async () => {
     try {
@@ -351,14 +367,14 @@ function MonthlyProgressCard() {
                 </g>
               ))}
 
-              {/* Month labels - black text */}
+              {/* Month labels - theme-aware text */}
               {chart.points.map((point, index) => (
                 <text
                   key={index}
                   x={point.x}
                   y={chart.height - 10}
                   textAnchor="middle"
-                  fill="#000000"
+                  fill={"#000000"}
                   fontSize="20"
                   fontWeight="600"
                 >

@@ -1,8 +1,9 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Link, useLocation, useSearchParams, useNavigate } from 'react-router-dom'
 import { Menu, X, ChevronDown, LogOut, User, UserCircle, Grid3x3 } from 'lucide-react'
 import { useTheme } from '../contexts/ThemeContext'
 import { useAuth } from '../contexts/AuthContext'
+import { getUserProfile } from '../lib/personalizationUtils'
 
 function LibraryDropdown({ location }) {
   const [isOpen, setIsOpen] = useState(false)
@@ -290,16 +291,64 @@ function FilterDropdown({ location, navigate }) {
 
 function ProfileDropdown({ user, onSignOut }) {
   const [isOpen, setIsOpen] = useState(false)
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState(null)
   const location = useLocation()
+
+  useEffect(() => {
+    const loadProfilePhoto = async () => {
+      if (!user?.id) {
+        setProfilePhotoUrl(null)
+        return
+      }
+      try {
+        const profile = await getUserProfile(user.id)
+        if (profile?.profile_photo_url) {
+          setProfilePhotoUrl(profile.profile_photo_url)
+        } else {
+          setProfilePhotoUrl(null)
+        }
+      } catch (error) {
+        console.error('Error loading profile photo:', error)
+        setProfilePhotoUrl(null)
+      }
+    }
+    loadProfilePhoto()
+    
+    // Listen for profile updates
+    const handleProfileUpdate = (event) => {
+      if (event.detail?.profile_photo_url !== undefined) {
+        setProfilePhotoUrl(event.detail.profile_photo_url)
+      } else {
+        // If no URL in event, reload from database
+        loadProfilePhoto()
+      }
+    }
+    
+    window.addEventListener('profileUpdated', handleProfileUpdate)
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileUpdate)
+    }
+  }, [user])
 
   return (
     <div className="relative">
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-center p-2 hover:opacity-80 transition-opacity"
+        className="flex items-center justify-center p-1 hover:opacity-80 transition-opacity"
         aria-label="User profile menu"
       >
-        <User className="w-5 h-5 text-dark-gray dark:text-white" />
+        {profilePhotoUrl ? (
+          <img
+            src={profilePhotoUrl}
+            alt="Profile"
+            className="w-10 h-10 rounded-full object-cover border-2 border-dark-gray/30 dark:border-white/30"
+            onError={(e) => {
+              e.target.style.display = 'none'
+              e.target.nextElementSibling.style.display = 'block'
+            }}
+          />
+        ) : null}
+        <User className={`w-10 h-10 text-dark-gray dark:text-white p-2 rounded-full border-2 border-dark-gray/30 dark:border-white/30 ${profilePhotoUrl ? 'hidden' : ''}`} />
       </button>
       {isOpen && (
         <>
@@ -320,9 +369,26 @@ function ProfileDropdown({ user, onSignOut }) {
           >
             <div className="px-5 py-4 border-b border-dark-gray/10 dark:border-white/10 bg-dark-gray/5 dark:bg-white/5">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-dark-gray dark:bg-white flex items-center justify-center">
-                  <UserCircle className="w-6 h-6 text-white dark:text-dark-gray" />
-                </div>
+                {profilePhotoUrl ? (
+                  <>
+                    <img
+                      src={profilePhotoUrl}
+                      alt="Profile"
+                      className="w-12 h-12 rounded-full object-cover border-2 border-dark-gray/20 dark:border-white/20"
+                      onError={(e) => {
+                        e.target.style.display = 'none'
+                        e.target.nextElementSibling.style.display = 'flex'
+                      }}
+                    />
+                    <div className="w-12 h-12 rounded-full bg-dark-gray dark:bg-white items-center justify-center hidden" style={{ display: 'none' }}>
+                      <UserCircle className="w-7 h-7 text-white dark:text-dark-gray" />
+                    </div>
+                  </>
+                ) : (
+                  <div className="w-12 h-12 rounded-full bg-dark-gray dark:bg-white flex items-center justify-center">
+                    <UserCircle className="w-7 h-7 text-white dark:text-dark-gray" />
+                  </div>
+                )}
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-widest text-dark-gray dark:text-white truncate">
                     {user?.email || 'User'}
@@ -367,10 +433,47 @@ function ProfileDropdown({ user, onSignOut }) {
 
 function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState(null)
   const { isDark, toggleTheme } = useTheme()
   const { user, signOut } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    const loadProfilePhoto = async () => {
+      if (!user?.id) {
+        setProfilePhotoUrl(null)
+        return
+      }
+      try {
+        const profile = await getUserProfile(user.id)
+        if (profile?.profile_photo_url) {
+          setProfilePhotoUrl(profile.profile_photo_url)
+        } else {
+          setProfilePhotoUrl(null)
+        }
+      } catch (error) {
+        console.error('Error loading profile photo:', error)
+        setProfilePhotoUrl(null)
+      }
+    }
+    loadProfilePhoto()
+    
+    // Listen for profile updates
+    const handleProfileUpdate = (event) => {
+      if (event.detail?.profile_photo_url !== undefined) {
+        setProfilePhotoUrl(event.detail.profile_photo_url)
+      } else {
+        // If no URL in event, reload from database
+        loadProfilePhoto()
+      }
+    }
+    
+    window.addEventListener('profileUpdated', handleProfileUpdate)
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileUpdate)
+    }
+  }, [user])
 
   const handleSignOut = async () => {
     try {
@@ -472,7 +575,22 @@ function Header() {
                   <>
                     <div className="px-4 py-2 text-sm text-dark-gray/70 dark:text-white/70 border-b border-dark-gray/20 dark:border-white/20 mb-2">
                       <div className="flex items-center gap-2 mb-1">
-                        <UserCircle className="w-5 h-5" />
+                        {profilePhotoUrl ? (
+                          <>
+                            <img
+                              src={profilePhotoUrl}
+                              alt="Profile"
+                              className="w-5 h-5 rounded-full object-cover border border-dark-gray/20 dark:border-white/20"
+                              onError={(e) => {
+                                e.target.style.display = 'none'
+                                e.target.nextElementSibling.style.display = 'block'
+                              }}
+                            />
+                            <UserCircle className="w-5 h-5 hidden" />
+                          </>
+                        ) : (
+                          <UserCircle className="w-5 h-5" />
+                        )}
                         <span className="font-medium truncate">{user.email}</span>
                       </div>
                     </div>
