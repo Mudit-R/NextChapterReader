@@ -33,7 +33,6 @@ const BookDetailPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { isDark } = useTheme();
-  
   const { user, loading: authLoading } = useAuth();
   const [book, setBook] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -41,6 +40,7 @@ const BookDetailPage = () => {
   const [totalRatings, setTotalRatings] = useState(0);
   const [userRating, setUserRating] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [currentPage, setCurrentPage] = useState(0);
   const [isInReadingList, setIsInReadingList] = useState(false);
   const [isRead, setIsRead] = useState(false);
   const [comments, setComments] = useState([]);
@@ -186,6 +186,111 @@ const BookDetailPage = () => {
     loadEngagementData();
   }, [id, user?.id, authLoading]);
 
+  useEffect(() => {
+    if (progress >= 100) {
+      setIsRead(true);
+    }
+  }, [progress]);
+
+  useEffect(() => {
+    const socketUrl = import.meta.env.VITE_SOCKET_URL;
+    if (!socketUrl) return;
+
+    const socket = io(socketUrl, {
+      transports: ['websocket']
+    });
+    socketRef.current = socket;
+
+    socket.emit('joinBook', { bookId: id });
+    socket.emit('syncComments', { bookId: id });
+
+    socket.on('commentsSync', ({ comments: syncedComments }) => {
+      if (!Array.isArray(syncedComments)) return;
+      updateCommentsState((prev) => {
+        const incoming = syncedComments
+          .map(formatComment)
+          .reduce((acc, comment) => {
+            if (!acc.some((existing) => existing.id === comment.id)) {
+              acc.push(comment);
+            }
+            return acc;
+          }, []);
+        const merged = [...incoming, ...prev.filter((existing) => !incoming.some((inc) => inc.id === existing.id))];
+        return merged.sort((a, b) => new Date(b.date) - new Date(a.date));
+      });
+    });
+
+    socket.on('commentAdded', ({ comment }) => {
+      if (!comment) return;
+      updateCommentsState((prev) => {
+        const normalized = formatComment(comment);
+        if (prev.some((existing) => existing.id === normalized.id)) {
+          return prev;
+        }
+        const next = [normalized, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date));
+        return next;
+      });
+    });
+
+    socket.on('commentReactionUpdated', ({ commentId, reaction, total }) => {
+      if (!commentId || !reaction) return;
+      updateCommentsState((prev) =>
+        prev.map((comment) =>
+          comment.id === commentId
+            ? {
+                ...comment,
+                ...(reaction === 'like' ? { likes: total } : { upvotes: total })
+              }
+            : comment
+        )
+      );
+    });
+
+    socket.on('commentReplied', ({ commentId, reply }) => {
+      if (!commentId || !reply) return;
+      const normalizedReply = formatReply(reply);
+      updateCommentsState((prev) =>
+        prev.map((comment) =>
+          comment.id === commentId
+            ? {
+                ...comment,
+                replies: comment.replies.some((existing) => existing.id === normalizedReply.id)
+                  ? comment.replies
+                  : [...comment.replies, normalizedReply]
+              }
+            : comment
+        )
+      );
+    });
+
+    socket.on('replyReactionUpdated', ({ commentId, replyId, reaction, total }) => {
+      if (!commentId || !replyId || !reaction) return;
+      updateCommentsState((prev) =>
+        prev.map((comment) =>
+          comment.id === commentId
+            ? {
+                ...comment,
+                replies: comment.replies.map((reply) =>
+                  reply.id === replyId
+                    ? {
+                        ...reply,
+                        ...(reaction === 'like' ? { likes: total } : { upvotes: total })
+                      }
+                    : reply
+                )
+              }
+            : comment
+        )
+      );
+    });
+
+    return () => {
+      socket.emit('leaveBook', { bookId: id });
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, [id]);
+
   const loadBook = async () => {
     setLoading(true);
     try {
@@ -195,9 +300,9 @@ const BookDetailPage = () => {
         .select('*')
         .eq('id', id)
         .single();
-      
+
       if (error && error.code !== 'PGRST116') throw error;
-      
+
       if (data) {
         setBook(data);
         syncReadingState();
@@ -224,210 +329,210 @@ const BookDetailPage = () => {
     }
   };
 
-  const loadEngagementData = async () => {
-    await Promise.all([loadRatings(), loadComments()]);
-  };
-
   const loadRatings = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('book_ratings')
-        .select('rating, user_id')
-        .eq('book_id', id);
+      try {
+        const { data, error } = await supabase
+          .from('book_ratings')
+          .select('rating, user_id')
+          .eq('book_id', id);
 
-      if (error) throw error;
+        if (error) throw error;
 
-      const ratingsData = Array.isArray(data) ? data : [];
-      const total = ratingsData.length;
-      setTotalRatings(total);
+        const ratingsData = Array.isArray(data) ? data : [];
+        const total = ratingsData.length;
+        setTotalRatings(total);
 
-      if (total > 0) {
-        const avg =
-          ratingsData.reduce((sum, entry) => sum + toNumber(entry.rating), 0) / total;
-        setRating(avg.toFixed(1));
-      } else {
+        if (total > 0) {
+          const avg =
+            ratingsData.reduce((sum, entry) => sum + toNumber(entry.rating), 0) / total;
+          setRating(avg.toFixed(1));
+        } else {
+          setRating(0);
+        }
+
+        if (user) {
+          const existing = ratingsData.find((entry) => entry.user_id === user.id);
+          setUserRating(existing ? toNumber(existing.rating) : 0);
+        } else {
+          setUserRating(0);
+        }
+      } catch (error) {
+        console.error('Error loading ratings:', error);
         setRating(0);
+        setTotalRatings(0);
+        if (!user) {
+          setUserRating(0);
+        }
       }
-
-      if (user) {
-        const existing = ratingsData.find((entry) => entry.user_id === user.id);
-        setUserRating(existing ? toNumber(existing.rating) : 0);
-      } else {
-        setUserRating(0);
-      }
-    } catch (error) {
-      console.error('Error loading ratings:', error);
-      setRating(0);
-      setTotalRatings(0);
-      if (!user) {
-        setUserRating(0);
-      }
-    }
   };
 
   const loadComments = async () => {
-    try {
-      const bookId = resolveBookId();
+      try {
+        const bookId = resolveBookId();
 
-      const commentResult = await runTableQuery(
-        'comments',
-        (table) =>
-          supabase
-            .from(table)
-            .select('id, book_id, user_id, author_name, text, likes_count, upvotes_count, created_at')
-            .eq('book_id', bookId)
-            .order('created_at', { ascending: false })
-      );
-
-      if (commentResult.error) {
-        throw commentResult.error;
-      }
-
-      const commentsData = Array.isArray(commentResult.data) ? commentResult.data : [];
-      const commentIds = commentsData.map((comment) => comment.id);
-
-      let repliesData = [];
-      if (commentIds.length > 0) {
-        const { data: replyRows, table: repliesTable } = await runTableQuery(
-          'replies',
+        const commentResult = await runTableQuery(
+          'comments',
           (table) =>
             supabase
               .from(table)
-              .select('id, comment_id, user_id, author_name, text, likes_count, upvotes_count, created_at')
-              .in('comment_id', commentIds),
-          { optional: true }
+              .select('id, book_id, user_id, author_name, text, likes_count, upvotes_count, created_at')
+              .eq('book_id', bookId)
+              .order('created_at', { ascending: false })
         );
 
-        if (repliesTable && Array.isArray(replyRows)) {
-          repliesData = replyRows;
+        if (commentResult.error) {
+          throw commentResult.error;
         }
-      }
 
-      const repliesByComment = repliesData.reduce((acc, reply) => {
-        const key = reply.comment_id;
-        if (!acc[key]) {
-          acc[key] = [];
+        const commentsData = Array.isArray(commentResult.data) ? commentResult.data : [];
+        const commentIds = commentsData.map((comment) => comment.id);
+
+        let repliesData = [];
+        if (commentIds.length > 0) {
+          const { data: replyRows, table: repliesTable } = await runTableQuery(
+            'replies',
+            (table) =>
+              supabase
+                .from(table)
+                .select('id, comment_id, user_id, author_name, text, likes_count, upvotes_count, created_at')
+                .in('comment_id', commentIds),
+            { optional: true }
+          );
+
+          if (repliesTable && Array.isArray(replyRows)) {
+            repliesData = replyRows;
+          }
         }
-        acc[key].push(reply);
-        return acc;
-      }, {});
 
-      const formatted = commentsData.map((comment) =>
-        formatComment({
-          ...comment,
-          replies: repliesByComment[comment.id] || []
-        })
-      );
+        const repliesByComment = repliesData.reduce((acc, reply) => {
+          const key = reply.comment_id;
+          if (!acc[key]) {
+            acc[key] = [];
+          }
+          acc[key].push(reply);
+          return acc;
+        }, {});
 
-      setComments(formatted);
-
-      if (user) {
-        const [
-          commentReactionsResult,
-          replyReactionsResult,
-          commentReportsResult,
-          replyReportsResult
-        ] = await Promise.all([
-          runTableQuery(
-            'commentReactions',
-            (table) =>
-              supabase
-                .from(table)
-                .select('comment_id, reaction_type')
-                .eq('book_id', bookId)
-                .eq('user_id', user.id),
-            { optional: true }
-          ),
-          runTableQuery(
-            'replyReactions',
-            (table) =>
-              supabase
-                .from(table)
-                .select('reply_id, reaction_type')
-                .eq('book_id', bookId)
-                .eq('user_id', user.id),
-            { optional: true }
-          ),
-          runTableQuery(
-            'commentReports',
-            (table) =>
-              supabase
-                .from(table)
-                .select('comment_id')
-                .eq('book_id', bookId)
-                .eq('user_id', user.id),
-            { optional: true }
-          ),
-          runTableQuery(
-            'replyReports',
-            (table) =>
-              supabase
-                .from(table)
-                .select('reply_id')
-                .eq('book_id', bookId)
-                .eq('user_id', user.id),
-            { optional: true }
-          )
-        ]);
-
-        const commentReactions = commentReactionsResult?.table
-          ? Array.isArray(commentReactionsResult.data)
-            ? commentReactionsResult.data
-            : []
-          : [];
-        const replyReactions = replyReactionsResult?.table
-          ? Array.isArray(replyReactionsResult.data)
-            ? replyReactionsResult.data
-            : []
-          : [];
-        const commentReports = commentReportsResult?.table
-          ? Array.isArray(commentReportsResult.data)
-            ? commentReportsResult.data
-            : []
-          : [];
-        const replyReports = replyReportsResult?.table
-          ? Array.isArray(replyReportsResult.data)
-            ? replyReportsResult.data
-            : []
-          : [];
-
-        setLikedComments(
-          commentReactions
-            .filter((reaction) => reaction.reaction_type === 'like')
-            .map((reaction) => reaction.comment_id)
+        const formatted = commentsData.map((comment) =>
+          formatComment({
+            ...comment,
+            replies: repliesByComment[comment.id] || []
+          })
         );
-        setUpvotedComments(
-          commentReactions
-            .filter((reaction) => reaction.reaction_type === 'upvote')
-            .map((reaction) => reaction.comment_id)
-        );
-        setLikedReplies(
-          replyReactions
-            .filter((reaction) => reaction.reaction_type === 'like')
-            .map((reaction) => reaction.reply_id)
-        );
-        setUpvotedReplies(
-          replyReactions
-            .filter((reaction) => reaction.reaction_type === 'upvote')
-            .map((reaction) => reaction.reply_id)
-        );
-        setReportedComments(commentReports.map((report) => report.comment_id));
-        setReportedReplies(replyReports.map((report) => report.reply_id));
-      } else {
-        setLikedComments([]);
-        setUpvotedComments([]);
-        setReportedComments([]);
-        setLikedReplies([]);
-        setUpvotedReplies([]);
-        setReportedReplies([]);
+
+        setComments(formatted);
+
+        if (user) {
+          const [
+            commentReactionsResult,
+            replyReactionsResult,
+            commentReportsResult,
+            replyReportsResult
+          ] = await Promise.all([
+            runTableQuery(
+              'commentReactions',
+              (table) =>
+                supabase
+                  .from(table)
+                  .select('comment_id, reaction_type')
+                  .eq('book_id', bookId)
+                  .eq('user_id', user.id),
+              { optional: true }
+            ),
+            runTableQuery(
+              'replyReactions',
+              (table) =>
+                supabase
+                  .from(table)
+                  .select('reply_id, reaction_type')
+                  .eq('book_id', bookId)
+                  .eq('user_id', user.id),
+              { optional: true }
+            ),
+            runTableQuery(
+              'commentReports',
+              (table) =>
+                supabase
+                  .from(table)
+                  .select('comment_id')
+                  .eq('book_id', bookId)
+                  .eq('user_id', user.id),
+              { optional: true }
+            ),
+            runTableQuery(
+              'replyReports',
+              (table) =>
+                supabase
+                  .from(table)
+                  .select('reply_id')
+                  .eq('book_id', bookId)
+                  .eq('user_id', user.id),
+              { optional: true }
+            )
+          ]);
+
+          const commentReactions = commentReactionsResult?.table
+            ? Array.isArray(commentReactionsResult.data)
+              ? commentReactionsResult.data
+              : []
+            : [];
+          const replyReactions = replyReactionsResult?.table
+            ? Array.isArray(replyReactionsResult.data)
+              ? replyReactionsResult.data
+              : []
+            : [];
+          const commentReports = commentReportsResult?.table
+            ? Array.isArray(commentReportsResult.data)
+              ? commentReportsResult.data
+              : []
+            : [];
+          const replyReports = replyReportsResult?.table
+            ? Array.isArray(replyReportsResult.data)
+              ? replyReportsResult.data
+              : []
+            : [];
+
+          setLikedComments(
+            commentReactions
+              .filter((reaction) => reaction.reaction_type === 'like')
+              .map((reaction) => reaction.comment_id)
+          );
+          setUpvotedComments(
+            commentReactions
+              .filter((reaction) => reaction.reaction_type === 'upvote')
+              .map((reaction) => reaction.comment_id)
+          );
+          setLikedReplies(
+            replyReactions
+              .filter((reaction) => reaction.reaction_type === 'like')
+              .map((reaction) => reaction.reply_id)
+          );
+          setUpvotedReplies(
+            replyReactions
+              .filter((reaction) => reaction.reaction_type === 'upvote')
+              .map((reaction) => reaction.reply_id)
+          );
+          setReportedComments(commentReports.map((report) => report.comment_id));
+          setReportedReplies(replyReports.map((report) => report.reply_id));
+        } else {
+          setLikedComments([]);
+          setUpvotedComments([]);
+          setReportedComments([]);
+          setLikedReplies([]);
+          setUpvotedReplies([]);
+          setReportedReplies([]);
+        }
+
+        setReplyText({});
+        setReplyingTo(null);
+      } catch (error) {
+        console.error('Error loading comments:', error);
+        setComments([]);
       }
+  };
 
-      setReplyText({});
-      setReplyingTo(null);
-    } catch (error) {
-      console.error('Error loading comments:', error);
-      setComments([]);
-    }
+  const loadEngagementData = async () => {
+    await Promise.all([loadRatings(), loadComments()]);
   };
 
   const updateCommentCount = async (commentId, type, delta) => {
@@ -530,8 +635,12 @@ const BookDetailPage = () => {
   };
 
   const handleProgressChange = (value) => {
-    setProgress(value);
-    localStorage.setItem(`book_progress_${id}`, value.toString());
+    const normalizedValue = Math.min(100, Math.max(0, value));
+    setProgress(normalizedValue);
+    localStorage.setItem(`book_progress_${id}`, normalizedValue.toString());
+    if (normalizedValue >= 100) {
+      setIsRead(true);
+    }
   };
 
   const toggleReadingList = () => {
@@ -993,105 +1102,6 @@ const BookDetailPage = () => {
     navigate(`/reader-local?id=${id}`);
   };
 
-  useEffect(() => {
-    const socketUrl = import.meta.env.VITE_SOCKET_URL;
-    if (!socketUrl) return;
-
-    const socket = io(socketUrl, {
-      transports: ['websocket']
-    });
-    socketRef.current = socket;
-
-    socket.emit('joinBook', { bookId: id });
-    socket.emit('syncComments', { bookId: id });
-
-    socket.on('commentsSync', ({ comments: syncedComments }) => {
-      if (!Array.isArray(syncedComments)) return;
-      updateCommentsState((prev) => {
-        const incoming = syncedComments
-          .map(formatComment)
-          .reduce((acc, comment) => {
-            if (!acc.some((existing) => existing.id === comment.id)) {
-              acc.push(comment);
-            }
-            return acc;
-          }, []);
-        const merged = [...incoming, ...prev.filter((existing) => !incoming.some((inc) => inc.id === existing.id))];
-        return merged.sort((a, b) => new Date(b.date) - new Date(a.date));
-      });
-    });
-
-    socket.on('commentAdded', ({ comment }) => {
-      if (!comment) return;
-      updateCommentsState((prev) => {
-        const normalized = formatComment(comment);
-        if (prev.some((existing) => existing.id === normalized.id)) {
-          return prev;
-        }
-        const next = [normalized, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date));
-        return next;
-      });
-    });
-
-    socket.on('commentReactionUpdated', ({ commentId, reaction, total }) => {
-      if (!commentId || !reaction) return;
-      updateCommentsState((prev) =>
-        prev.map((comment) =>
-          comment.id === commentId
-            ? {
-                ...comment,
-                ...(reaction === 'like' ? { likes: total } : { upvotes: total })
-              }
-            : comment
-        )
-      );
-    });
-
-    socket.on('commentReplied', ({ commentId, reply }) => {
-      if (!commentId || !reply) return;
-      const normalizedReply = formatReply(reply);
-      updateCommentsState((prev) =>
-        prev.map((comment) =>
-          comment.id === commentId
-            ? {
-                ...comment,
-                replies: comment.replies.some((existing) => existing.id === normalizedReply.id)
-                  ? comment.replies
-                  : [...comment.replies, normalizedReply]
-              }
-            : comment
-        )
-      );
-    });
-
-    socket.on('replyReactionUpdated', ({ commentId, replyId, reaction, total }) => {
-      if (!commentId || !replyId || !reaction) return;
-      updateCommentsState((prev) =>
-        prev.map((comment) =>
-          comment.id === commentId
-            ? {
-                ...comment,
-                replies: comment.replies.map((reply) =>
-                  reply.id === replyId
-                    ? {
-                        ...reply,
-                        ...(reaction === 'like' ? { likes: total } : { upvotes: total })
-                      }
-                    : reply
-                )
-              }
-            : comment
-        )
-      );
-    });
-
-    return () => {
-      socket.emit('leaveBook', { bookId: id });
-      socket.disconnect();
-      socketRef.current = null;
-    };
-  }, [id]);
-
   if (loading) {
     return (
       <div className="min-h-screen bg-dark-gray dark:bg-white">
@@ -1116,363 +1126,367 @@ const BookDetailPage = () => {
 
   // Extract genre from subjects array or use genre field if available
   const genre = book.genre || book.subjects?.[0] || book.subjects || 'Fiction';
+  const isFullyRead = progress >= 100 || isRead;
 
   return (
-    <div className="min-h-screen bg-dark-gray dark:bg-white">
-      <Header />
-      
-      {/* Book Detail Section */}
-      <section className="bg-dark-gray dark:bg-white py-12 md:py-20">
-        <div className="max-w-7xl mx-auto px-8">
-          <div className="grid grid-cols-12 gap-8 md:gap-16">
-            {/* Left Column - Cover and Actions */}
-            <div className="col-span-12 md:col-span-4">
-              <div className="sticky top-8">
-                {/* Cover */}
-                <div className="mb-8 w-3/4 mx-auto p-4" style={{backgroundColor: '#2b2b2b'}}>
-                  <div className="border-4 p-1 bg-white" style={{borderColor: '#2b2b2b'}}>
-                    <div className="overflow-hidden">
-                      {book.cover_image ? (
-                        <img 
-                          src={book.cover_image} 
-                          alt={book.title}
-                          className="w-full aspect-2/3 object-cover"
-                        />
+      <div className="min-h-screen bg-dark-gray dark:bg-white">
+        <Header />
+
+        {/* Book Detail Section */}
+        <section className="bg-dark-gray dark:bg-white py-12 md:py-20">
+          <div className="max-w-7xl mx-auto px-8">
+            <div className="grid grid-cols-12 gap-8 md:gap-16">
+              {/* Left Column - Cover and Actions */}
+              <div className="col-span-12 md:col-span-4">
+                <div className="sticky top-8">
+                  {/* Cover */}
+                  <div className="mb-8 w-3/4 mx-auto p-4" style={{ backgroundColor: '#2b2b2b' }}>
+                    <div className="border-4 p-1 bg-white" style={{ borderColor: '#2b2b2b' }}>
+                      <div className="overflow-hidden">
+                        {book.cover_image ? (
+                          <img
+                            src={book.cover_image}
+                            alt={book.title}
+                            className="w-full aspect-2/3 object-cover"
+                          />
+                        ) : (
+                          <div className="w-full aspect-2/3 bg-white dark:bg-dark-gray flex items-center justify-center text-dark-gray dark:text-white text-6xl">
+                            📚
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="space-y-3">
+                    <button
+                      onClick={handleReadNow}
+                      className="w-full bg-white dark:bg-dark-gray text-dark-gray dark:text-white border-2 border-white dark:border-dark-gray px-6 py-3 text-xs font-medium uppercase tracking-widest hover:opacity-80 transition-opacity flex items-center justify-center gap-2"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" />
+                      {progress > 0 && currentPage > 0 ? 'Continue Reading' : 'Read Now'}
+                    </button>
+
+                    <button
+                      onClick={toggleReadingList}
+                      className={`w-full border-2 px-4 py-2.5 text-[10px] font-medium uppercase tracking-widest transition-opacity hover:opacity-80 flex items-center justify-center gap-2 ${isInReadingList
+                          ? 'bg-white dark:bg-dark-gray text-dark-gray dark:text-white border-white dark:border-dark-gray'
+                          : 'bg-transparent text-white dark:text-dark-gray border-white dark:border-dark-gray'
+                        }`}
+                    >
+                      {isInReadingList ? (
+                        <>
+                          <Minus className="w-3 h-3" />
+                          Remove from List
+                        </>
                       ) : (
-                        <div className="w-full aspect-2/3 bg-white dark:bg-dark-gray flex items-center justify-center text-dark-gray dark:text-white text-6xl">
-                          📚
-                        </div>
+                        <>
+                          <Plus className="w-3 h-3" />
+                          Add to Reading List
+                        </>
                       )}
-                    </div>
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (!isFullyRead) {
+                          toggleMarkAsRead();
+                        }
+                      }}
+                      disabled={isFullyRead}
+                      className={`w-full border-2 px-4 py-2.5 text-[10px] font-medium uppercase tracking-widest transition-opacity flex items-center justify-center gap-2 ${isFullyRead
+                          ? 'bg-white dark:bg-dark-gray text-dark-gray dark:text-white border-white dark:border-dark-gray'
+                          : 'bg-transparent text-white dark:text-dark-gray border-white dark:border-dark-gray hover:opacity-80'
+                        } disabled:opacity-40 disabled:cursor-not-allowed`}
+                    >
+                      <CheckCircle className="w-3 h-3" />
+                      {isFullyRead ? 'Already Read' : 'Mark as Read'}
+                    </button>
                   </div>
                 </div>
-
-                {/* Action Buttons */}
-                <div className="space-y-3">
-                  <button
-                    onClick={handleReadNow}
-                    className="w-full bg-white dark:bg-dark-gray text-dark-gray dark:text-white border-2 border-white dark:border-dark-gray px-6 py-3 text-xs font-medium uppercase tracking-widest hover:opacity-80 transition-opacity flex items-center justify-center gap-2"
-                  >
-                    <BookOpen className="w-3.5 h-3.5" />
-                    Read Now
-                  </button>
-                  
-                  <button
-                    onClick={toggleReadingList}
-                    className={`w-full border-2 px-4 py-2.5 text-[10px] font-medium uppercase tracking-widest transition-opacity hover:opacity-80 flex items-center justify-center gap-2 ${
-                      isInReadingList
-                        ? 'bg-white dark:bg-dark-gray text-dark-gray dark:text-white border-white dark:border-dark-gray'
-                        : 'bg-transparent text-white dark:text-dark-gray border-white dark:border-dark-gray'
-                    }`}
-                  >
-                    {isInReadingList ? (
-                      <>
-                        <Minus className="w-3 h-3" />
-                        Remove from List
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-3 h-3" />
-                        Add to Reading List
-                      </>
-                    )}
-                  </button>
-                  
-                  <button
-                    onClick={toggleMarkAsRead}
-                    className={`w-full border-2 px-4 py-2.5 text-[10px] font-medium uppercase tracking-widest transition-opacity hover:opacity-80 flex items-center justify-center gap-2 ${
-                      isRead
-                        ? 'bg-white dark:bg-dark-gray text-dark-gray dark:text-white border-white dark:border-dark-gray'
-                        : 'bg-transparent text-white dark:text-dark-gray border-white dark:border-dark-gray'
-                    }`}
-                  >
-                    <CheckCircle className="w-3 h-3" />
-                    {isRead ? 'Mark as Unread' : 'Mark as Read'}
-                  </button>
-                </div>
               </div>
-            </div>
 
-            {/* Right Column - Book Info */}
-            <div className="col-span-12 md:col-span-8">
-              {/* Title and Author */}
-              <div className="mb-8 border-b-2 border-white dark:border-dark-gray pb-8">
-                <h1 className="text-2xl md:text-3xl lg:text-4xl text-white dark:text-dark-gray mb-4 leading-tight font-light">
-                  {book.title}
-                </h1>
-                <p className="text-white/70 dark:text-dark-gray/70 text-sm md:text-base mb-3 font-light uppercase tracking-widest">
-                  {book.author || 'Unknown Author'}
-                </p>
-                <p className="text-xs uppercase tracking-widest mb-4" style={{ color: '#d47249' }}>
-                  {genre}
-                </p>
-                {book.description && (
-                  <p className="text-white/70 dark:text-dark-gray/70 text-sm leading-relaxed font-light mt-4">
-                    {book.description}
+              {/* Right Column - Book Info */}
+              <div className="col-span-12 md:col-span-8">
+                {/* Title and Author */}
+                <div className="mb-8 border-b-2 border-white dark:border-dark-gray pb-8">
+                  <h1 className="text-2xl md:text-3xl lg:text-4xl text-white dark:text-dark-gray mb-4 leading-tight font-light">
+                    {book.title}
+                  </h1>
+                  <p className="text-white/70 dark:text-dark-gray/70 text-sm md:text-base mb-3 font-light uppercase tracking-widest">
+                    {book.author || 'Unknown Author'}
                   </p>
-                )}
-              </div>
-
-              {/* Rating + Feedback */}
-              <div className="mb-8 rounded-lg border border-white/10 dark:border-dark-gray/10 bg-white/[0.03] dark:bg-dark-gray/[0.03] px-6 py-7">
-                <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
-                  <div className="flex items-center gap-6">
-                    <div className="flex flex-col items-start gap-3">
-                      <div className="flex items-center gap-3">
-                        <span className="text-4xl font-light text-white dark:text-dark-gray tracking-widest">
-                          {rating > 0 ? rating : '0.0'}
-                        </span>
-                        <Star className="w-5 h-5 text-white dark:text-dark-gray fill-current opacity-70" />
-                      </div>
-                      <p className="text-white/60 dark:text-dark-gray/60 text-xs uppercase tracking-[0.4em]">
-                        Average Rating
-                      </p>
-                    </div>
-                    <div className="hidden md:block h-16 w-px bg-white/15 dark:bg-dark-gray/15" />
-                    <div className="text-white/60 dark:text-dark-gray/60 text-xs md:text-sm uppercase tracking-[0.35em]">
-                      {totalRatings > 0
-                        ? `${totalRatings} ${totalRatings === 1 ? 'rating' : 'ratings'}`
-                        : 'No ratings yet'}
-                    </div>
-                  </div>
-
-                  <div className="flex-1 md:max-w-md md:ml-auto">
-                    <div className="flex flex-col gap-4 md:items-end md:text-right">
-                      <div className="flex flex-col gap-2 md:items-end">
-                        <span className="text-white/70 dark:text-dark-gray/70 text-xs md:text-sm uppercase tracking-[0.35em]">
-                          Rate this
-                        </span>
-                        <div className="flex items-center gap-1.5">
-                          {[1, 2, 3, 4, 5].map((star) => (
-                            <button
-                              key={star}
-                              onClick={() => handleRating(star)}
-                              className="text-white dark:text-dark-gray hover:opacity-80 transition-opacity"
-                            >
-                              <Star
-                                className={`w-4 h-4 ${star <= userRating ? 'fill-current' : ''}`}
-                              />
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Progress */}
-              <div className="mb-8 rounded-lg border border-white/10 dark:border-dark-gray/10 bg-white/[0.02] dark:bg-dark-gray/[0.02] px-6 py-5">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="text-white dark:text-dark-gray text-xs md:text-sm font-medium uppercase tracking-[0.35em]">
-                    Reading Progress
-                  </span>
-                  <span className="text-white/70 dark:text-dark-gray/70 text-xs md:text-sm tracking-[0.3em]">
-                    {progress}%
-                  </span>
-                </div>
-                <div className="w-full bg-white/10 dark:bg-dark-gray/10 h-1.5 border border-white/20 dark:border-dark-gray/20">
-                  <div 
-                    className="h-full bg-white dark:bg-dark-gray transition-all duration-300"
-                    style={{ width: `${progress}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* Tabs */}
-              <div className="border-t-2 border-white dark:border-dark-gray pt-8 space-y-8">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-white dark:text-dark-gray text-base md:text-lg font-medium uppercase tracking-widest">
-                    Comments
-                  </h3>
-                  <span className="text-white/60 dark:text-dark-gray/60 text-sm md:text-base uppercase tracking-widest">
-                    {comments.length} total
-                  </span>
-                </div>
-
-                <div className="rounded-lg border border-white/10 dark:border-dark-gray/10 bg-white/[0.02] dark:bg-dark-gray/[0.02] p-5 flex flex-col gap-3">
-                  <textarea
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    placeholder="Share your thoughts or start a conversation..."
-                    rows={4}
-                    className="w-full bg-transparent border border-white/30 dark:border-dark-gray/30 text-white dark:text-dark-gray placeholder-white/40 dark:placeholder-dark-gray/40 px-4 py-3 text-sm focus:outline-none focus:border-white dark:focus:border-dark-gray transition-colors resize-none"
-                  />
-                  <button
-                    onClick={handleSubmitComment}
-                    disabled={isSubmittingComment || !commentText.trim()}
-                    className="self-start bg-white dark:bg-dark-gray text-dark-gray dark:text-white border border-white dark:border-dark-gray px-4 py-2 text-sm font-medium uppercase tracking-widest hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-                  >
-                    {isSubmittingComment ? 'Posting...' : 'Post Comment'}
-                  </button>
-                </div>
-
-                <div className="rounded-lg border border-white/10 dark:border-dark-gray/10 bg-white/[0.02] dark:bg-dark-gray/[0.02] overflow-hidden">
-                  {comments.length === 0 ? (
-                    <p className="text-white/60 dark:text-dark-gray/60 text-sm text-center py-8">
-                      No comments yet. Share your thoughts!
+                  <p className="text-xs uppercase tracking-widest mb-4" style={{ color: '#d47249' }}>
+                    {genre}
+                  </p>
+                  {book.description && (
+                    <p className="text-white/70 dark:text-dark-gray/70 text-sm leading-relaxed font-light mt-4">
+                      {book.description}
                     </p>
-                  ) : (
-                    <div className="divide-y divide-white/10 dark:divide-dark-gray/10">
-                      {comments.map((comment, index) => (
-                        <div
-                          key={comment.id}
-                          className={`p-5 space-y-3 ${index === 0 ? 'pt-6' : ''} ${index === comments.length - 1 ? 'pb-6' : ''}`}
-                        >
-                          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2">
-                            <div className="flex items-center gap-2">
-                              <span className="text-white dark:text-dark-gray text-sm md:text-base font-semibold uppercase tracking-widest">
-                                {comment.user}
-                              </span>
-                              <span className="text-white/45 dark:text-dark-gray/45 text-xs uppercase tracking-[0.35em]">
-                                Comment
-                              </span>
-                            </div>
-                            <span className="text-white/45 dark:text-dark-gray/45 text-xs md:text-sm uppercase tracking-[0.3em]">
-                              {new Date(comment.date).toLocaleDateString()}
-                            </span>
-                          </div>
-                          <p className="text-white/80 dark:text-dark-gray/70 text-sm md:text-base leading-relaxed">
-                            {comment.text}
-                          </p>
-                          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-white/60 dark:text-dark-gray/60 text-xs uppercase tracking-[0.3em]">
-                            <button
-                              onClick={() => handleToggleLike(comment.id)}
-                              className="flex items-center gap-1 hover:opacity-80 transition-opacity"
-                            >
-                              <Heart
-                                className="w-3.5 h-3.5"
-                                fill={likedComments.includes(comment.id) ? 'currentColor' : 'none'}
-                              />
-                              <span>{comment.likes}</span>
-                            </button>
-                            <button
-                              onClick={() => handleToggleUpvote(comment.id)}
-                              className="flex items-center gap-1 hover:opacity-80 transition-opacity"
-                            >
-                              <ArrowBigUp
-                                className="w-3.5 h-3.5"
-                                fill={upvotedComments.includes(comment.id) ? 'currentColor' : 'none'}
-                              />
-                              <span>{comment.upvotes}</span>
-                            </button>
-                            <button
-                              onClick={() =>
-                                setReplyingTo((current) => (current === comment.id ? null : comment.id))
-                              }
-                              className="flex items-center gap-1 hover:opacity-80 transition-opacity"
-                            >
-                              <MessageSquare className="w-3.5 h-3.5" />
-                              <span>Reply</span>
-                            </button>
-                            <button
-                              onClick={() => handleReportComment(comment.id)}
-                              disabled={reportedComments.includes(comment.id)}
-                              className="flex items-center gap-1 hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-                              title={reportedComments.includes(comment.id) ? 'Already reported' : 'Report comment'}
-                            >
-                              <Flag className="w-3.5 h-3.5" fill={reportedComments.includes(comment.id) ? 'currentColor' : 'none'} />
-                              <span>Report</span>
-                            </button>
-                          </div>
-
-                          {comment.replies.length > 0 && (
-                            <div className="mt-4 space-y-4 border-l border-white/15 dark:border-dark-gray/15 pl-4 md:pl-5">
-                              {comment.replies.map((reply) => {
-                                const isLiked = likedReplies.includes(reply.id);
-                                const isUpvoted = upvotedReplies.includes(reply.id);
-                                const isReported = reportedReplies.includes(reply.id);
-                                return (
-                                  <div
-                                    key={reply.id}
-                                    className="space-y-2"
-                                  >
-                                    <div className="flex items-center justify-between gap-2">
-                                      <span className="text-white dark:text-dark-gray text-xs md:text-sm font-medium uppercase tracking-widest">
-                                        {reply.user}
-                                      </span>
-                                      <span className="text-white/45 dark:text-dark-gray/45 text-[0.65rem] md:text-xs uppercase tracking-[0.3em]">
-                                        {new Date(reply.date).toLocaleDateString()}
-                                      </span>
-                                    </div>
-                                    <p className="text-white/70 dark:text-dark-gray/65 text-xs md:text-sm leading-relaxed">
-                                      {reply.text}
-                                    </p>
-                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-white/60 dark:text-dark-gray/60 text-[0.65rem] uppercase tracking-[0.3em]">
-                                      <button
-                                        onClick={() => handleToggleReplyLike(comment.id, reply.id)}
-                                        className="flex items-center gap-1 hover:opacity-80 transition-opacity"
-                                      >
-                                        <Heart
-                                          className="w-3 h-3"
-                                          fill={isLiked ? 'currentColor' : 'none'}
-                                        />
-                                        <span>{reply.likes || 0}</span>
-                                      </button>
-                                      <button
-                                        onClick={() => handleToggleReplyUpvote(comment.id, reply.id)}
-                                        className="flex items-center gap-1 hover:opacity-80 transition-opacity"
-                                      >
-                                        <ArrowBigUp
-                                          className="w-3 h-3"
-                                          fill={isUpvoted ? 'currentColor' : 'none'}
-                                        />
-                                        <span>{reply.upvotes || 0}</span>
-                                      </button>
-                                      <button
-                                        onClick={() => handleReportReply(comment.id, reply.id)}
-                                        disabled={isReported}
-                                        className="flex items-center gap-1 hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-                                        title={isReported ? 'Already reported' : 'Report reply'}
-                                      >
-                                        <Flag className="w-3 h-3" fill={isReported ? 'currentColor' : 'none'} />
-                                        <span>Report</span>
-                                      </button>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
-
-                          {replyingTo === comment.id && (
-                            <div className="mt-3 space-y-2 border border-white/10 dark:border-dark-gray/10 bg-white/[0.02] dark:bg-dark-gray/[0.02] p-3">
-                              <textarea
-                                value={replyText[comment.id] || ''}
-                                onChange={(e) => handleReplyChange(comment.id, e.target.value)}
-                                placeholder="Write a reply..."
-                                rows={3}
-                                className="w-full bg-transparent border border-white/20 dark:border-dark-gray/20 text-white dark:text-dark-gray placeholder-white/40 dark:placeholder-dark-gray/40 px-3 py-2 text-sm focus:outline-none focus:border-white dark:focus:border-dark-gray transition-colors resize-none"
-                              />
-                              <div className="flex gap-3">
-                                <button
-                                  onClick={() => handleSubmitReply(comment.id)}
-                                  disabled={!replyText[comment.id]?.trim()}
-                                  className="bg-white dark:bg-dark-gray text-dark-gray dark:text-white border border-white dark:border-dark-gray px-3 py-1.5 text-sm font-medium uppercase tracking-widest hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-                                >
-                                  Post Reply
-                                </button>
-                                <button
-                                  onClick={() => setReplyingTo(null)}
-                                  className="text-white/60 dark:text-dark-gray/60 text-sm uppercase tracking-widest hover:opacity-80 transition-opacity"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
                   )}
+                </div>
+
+                {/* Rating + Feedback */}
+                <div className="mb-8 rounded-lg border border-white/10 dark:border-dark-gray/10 bg-white/[0.03] dark:bg-dark-gray/[0.03] px-6 py-7">
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+                    <div className="flex items-center gap-6">
+                      <div className="flex flex-col items-start gap-3">
+                        <div className="flex items-center gap-3">
+                          <span className="text-4xl font-light text-white dark:text-dark-gray tracking-widest">
+                            {rating > 0 ? rating : '0.0'}
+                          </span>
+                          <Star className="w-5 h-5 text-white dark:text-dark-gray fill-current opacity-70" />
+                        </div>
+                        <p className="text-white/60 dark:text-dark-gray/60 text-xs uppercase tracking-[0.4em]">
+                          Average Rating
+                        </p>
+                      </div>
+                      <div className="hidden md:block h-16 w-px bg-white/15 dark:bg-dark-gray/15" />
+                      <div className="text-white/60 dark:text-dark-gray/60 text-xs md:text-sm uppercase tracking-[0.35em]">
+                        {totalRatings > 0
+                          ? `${totalRatings} ${totalRatings === 1 ? 'rating' : 'ratings'}`
+                          : 'No ratings yet'}
+                      </div>
+                    </div>
+
+                    <div className="flex-1 md:max-w-md md:ml-auto">
+                      <div className="flex flex-col gap-4 md:items-end md:text-right">
+                        <div className="flex flex-col gap-2 md:items-end">
+                          <span className="text-white/70 dark:text-dark-gray/70 text-xs md:text-sm uppercase tracking-[0.35em]">
+                            Rate this
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            {[1, 2, 3, 4, 5].map((star) => (
+                              <button
+                                key={star}
+                                onClick={() => handleRating(star)}
+                                className="text-white dark:text-dark-gray hover:opacity-80 transition-opacity"
+                              >
+                                <Star
+                                  className={`w-4 h-4 ${star <= userRating ? 'fill-current' : ''}`}
+                                />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress */}
+                <div className="mb-8 rounded-lg border border-white/10 dark:border-dark-gray/10 bg-white/[0.02] dark:bg-dark-gray/[0.02] px-6 py-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="text-white dark:text-dark-gray text-xs md:text-sm font-medium uppercase tracking-[0.35em]">
+                      Reading Progress
+                    </span>
+                    <span className="text-white/70 dark:text-dark-gray/70 text-xs md:text-sm tracking-[0.3em]">
+                      {progress}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-white/10 dark:bg-dark-gray/10 h-1.5 border border-white/20 dark:border-dark-gray/20">
+                    <div
+                      className="h-full bg-white dark:bg-dark-gray transition-all duration-300"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Tabs */}
+                <div className="border-t-2 border-white dark:border-dark-gray pt-8 space-y-8">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-white dark:text-dark-gray text-base md:text-lg font-medium uppercase tracking-widest">
+                      Comments
+                    </h3>
+                    <span className="text-white/60 dark:text-dark-gray/60 text-sm md:text-base uppercase tracking-widest">
+                      {comments.length} total
+                    </span>
+                  </div>
+
+                  <div className="rounded-lg border border-white/10 dark:border-dark-gray/10 bg-white/[0.02] dark:bg-dark-gray/[0.02] p-5 flex flex-col gap-3">
+                    <textarea
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      placeholder="Share your thoughts or start a conversation..."
+                      rows={4}
+                      className="w-full bg-transparent border border-white/30 dark:border-dark-gray/30 text-white dark:text-dark-gray placeholder-white/40 dark:placeholder-dark-gray/40 px-4 py-3 text-sm focus:outline-none focus:border-white dark:focus:border-dark-gray transition-colors resize-none"
+                    />
+                    <button
+                      onClick={handleSubmitComment}
+                      disabled={isSubmittingComment || !commentText.trim()}
+                      className="self-start bg-white dark:bg-dark-gray text-dark-gray dark:text-white border border-white dark:border-dark-gray px-4 py-2 text-sm font-medium uppercase tracking-widest hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      {isSubmittingComment ? 'Posting...' : 'Post Comment'}
+                    </button>
+                  </div>
+
+                  <div className="rounded-lg border border-white/10 dark:border-dark-gray/10 bg-white/[0.02] dark:bg-dark-gray/[0.02] overflow-hidden">
+                    {comments.length === 0 ? (
+                      <p className="text-white/60 dark:text-dark-gray/60 text-sm text-center py-8">
+                        No comments yet. Share your thoughts!
+                      </p>
+                    ) : (
+                      <div className="divide-y divide-white/10 dark:divide-dark-gray/10">
+                        {comments.map((comment, index) => (
+                          <div
+                            key={comment.id}
+                            className={`p-5 space-y-3 ${index === 0 ? 'pt-6' : ''} ${index === comments.length - 1 ? 'pb-6' : ''}`}
+                          >
+                            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-white dark:text-dark-gray text-sm md:text-base font-semibold uppercase tracking-widest">
+                                  {comment.user}
+                                </span>
+                                <span className="text-white/45 dark:text-dark-gray/45 text-xs uppercase tracking-[0.35em]">
+                                  Comment
+                                </span>
+                              </div>
+                              <span className="text-white/45 dark:text-dark-gray/45 text-xs md:text-sm uppercase tracking-[0.3em]">
+                                {new Date(comment.date).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <p className="text-white/80 dark:text-dark-gray/70 text-sm md:text-base leading-relaxed">
+                              {comment.text}
+                            </p>
+                            <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-white/60 dark:text-dark-gray/60 text-xs uppercase tracking-[0.3em]">
+                              <button
+                                onClick={() => handleToggleLike(comment.id)}
+                                className="flex items-center gap-1 hover:opacity-80 transition-opacity"
+                              >
+                                <Heart
+                                  className="w-3.5 h-3.5"
+                                  fill={likedComments.includes(comment.id) ? 'currentColor' : 'none'}
+                                />
+                                <span>{comment.likes}</span>
+                              </button>
+                              <button
+                                onClick={() => handleToggleUpvote(comment.id)}
+                                className="flex items-center gap-1 hover:opacity-80 transition-opacity"
+                              >
+                                <ArrowBigUp
+                                  className="w-3.5 h-3.5"
+                                  fill={upvotedComments.includes(comment.id) ? 'currentColor' : 'none'}
+                                />
+                                <span>{comment.upvotes}</span>
+                              </button>
+                              <button
+                                onClick={() =>
+                                  setReplyingTo((current) => (current === comment.id ? null : comment.id))
+                                }
+                                className="flex items-center gap-1 hover:opacity-80 transition-opacity"
+                              >
+                                <MessageSquare className="w-3.5 h-3.5" />
+                                <span>Reply</span>
+                              </button>
+                              <button
+                                onClick={() => handleReportComment(comment.id)}
+                                disabled={reportedComments.includes(comment.id)}
+                                className="flex items-center gap-1 hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                                title={reportedComments.includes(comment.id) ? 'Already reported' : 'Report comment'}
+                              >
+                                <Flag className="w-3.5 h-3.5" fill={reportedComments.includes(comment.id) ? 'currentColor' : 'none'} />
+                                <span>Report</span>
+                              </button>
+                            </div>
+
+                            {comment.replies.length > 0 && (
+                              <div className="mt-4 space-y-4 border-l border-white/15 dark:border-dark-gray/15 pl-4 md:pl-5">
+                                {comment.replies.map((reply) => {
+                                  const isLiked = likedReplies.includes(reply.id);
+                                  const isUpvoted = upvotedReplies.includes(reply.id);
+                                  const isReported = reportedReplies.includes(reply.id);
+                                  return (
+                                    <div
+                                      key={reply.id}
+                                      className="space-y-2"
+                                    >
+                                      <div className="flex items-center justify-between gap-2">
+                                        <span className="text-white dark:text-dark-gray text-xs md:text-sm font-medium uppercase tracking-widest">
+                                          {reply.user}
+                                        </span>
+                                        <span className="text-white/45 dark:text-dark-gray/45 text-[0.65rem] md:text-xs uppercase tracking-[0.3em]">
+                                          {new Date(reply.date).toLocaleDateString()}
+                                        </span>
+                                      </div>
+                                      <p className="text-white/70 dark:text-dark-gray/65 text-xs md:text-sm leading-relaxed">
+                                        {reply.text}
+                                      </p>
+                                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-white/60 dark:text-dark-gray/60 text-[0.65rem] uppercase tracking-[0.3em]">
+                                        <button
+                                          onClick={() => handleToggleReplyLike(comment.id, reply.id)}
+                                          className="flex items-center gap-1 hover:opacity-80 transition-opacity"
+                                        >
+                                          <Heart
+                                            className="w-3 h-3"
+                                            fill={isLiked ? 'currentColor' : 'none'}
+                                          />
+                                          <span>{reply.likes || 0}</span>
+                                        </button>
+                                        <button
+                                          onClick={() => handleToggleReplyUpvote(comment.id, reply.id)}
+                                          className="flex items-center gap-1 hover:opacity-80 transition-opacity"
+                                        >
+                                          <ArrowBigUp
+                                            className="w-3 h-3"
+                                            fill={isUpvoted ? 'currentColor' : 'none'}
+                                          />
+                                          <span>{reply.upvotes || 0}</span>
+                                        </button>
+                                        <button
+                                          onClick={() => handleReportReply(comment.id, reply.id)}
+                                          disabled={isReported}
+                                          className="flex items-center gap-1 hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                                          title={isReported ? 'Already reported' : 'Report reply'}
+                                        >
+                                          <Flag className="w-3 h-3" fill={isReported ? 'currentColor' : 'none'} />
+                                          <span>Report</span>
+                                        </button>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+
+                            {replyingTo === comment.id && (
+                              <div className="mt-3 space-y-2 border border-white/10 dark:border-dark-gray/10 bg-white/[0.02] dark:bg-dark-gray/[0.02] p-3">
+                                <textarea
+                                  value={replyText[comment.id] || ''}
+                                  onChange={(e) => handleReplyChange(comment.id, e.target.value)}
+                                  placeholder="Write a reply..."
+                                  rows={3}
+                                  className="w-full bg-transparent border border-white/20 dark:border-dark-gray/20 text-white dark:text-dark-gray placeholder-white/40 dark:placeholder-dark-gray/40 px-3 py-2 text-sm focus:outline-none focus:border-white dark:focus:border-dark-gray transition-colors resize-none"
+                                />
+                                <div className="flex gap-3">
+                                  <button
+                                    onClick={() => handleSubmitReply(comment.id)}
+                                    disabled={!replyText[comment.id]?.trim()}
+                                    className="bg-white dark:bg-dark-gray text-dark-gray dark:text-white border border-white dark:border-dark-gray px-3 py-1.5 text-sm font-medium uppercase tracking-widest hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                                  >
+                                    Post Reply
+                                  </button>
+                                  <button
+                                    onClick={() => setReplyingTo(null)}
+                                    className="text-white/60 dark:text-dark-gray/60 text-sm uppercase tracking-widest hover:opacity-80 transition-opacity"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
-    </div>
-  );
+        </section>
+      </div>
+    );
 };
 
 export default BookDetailPage;
