@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import { useTheme } from '../contexts/ThemeContext';
@@ -17,6 +17,17 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabaseClient';
 import { io } from 'socket.io-client';
+
+const TABLE_PREFERENCES = {
+  comments: ['book_discussions', 'book_comments'],
+  replies: ['book_discussion_replies', 'book_comment_replies'],
+  commentReactions: ['book_discussion_reactions', 'book_comment_reactions'],
+  replyReactions: ['book_discussion_reply_reactions', 'book_reply_reactions'],
+  commentReports: ['book_discussion_reports', 'book_comment_reports'],
+  replyReports: ['book_discussion_reply_reports', 'book_reply_reports']
+};
+
+const isTableMissingError = (error) => error?.code === '42P01';
 
 const BookDetailPage = () => {
   const { id } = useParams();
@@ -42,7 +53,9 @@ const BookDetailPage = () => {
   const [reportedReplies, setReportedReplies] = useState([]);
   const [replyText, setReplyText] = useState({});
   const [replyingTo, setReplyingTo] = useState(null);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const socketRef = useRef(null);
+  const tableCacheRef = useRef({});
 
   const createFallbackId = () => {
     if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
@@ -56,6 +69,76 @@ const BookDetailPage = () => {
     return Number.isFinite(numeric) ? numeric : 0;
   };
 
+  const runTableQuery = useCallback(
+    async (key, executor, { optional = false } = {}) => {
+      const candidates = TABLE_PREFERENCES[key] || [];
+      const cached = tableCacheRef.current[key];
+      const orderedCandidates =
+        cached && candidates.includes(cached)
+          ? [cached, ...candidates.filter((candidate) => candidate !== cached)]
+          : candidates;
+
+      if (orderedCandidates.length === 0) {
+        if (optional) {
+          return { data: null, error: null, table: null };
+        }
+        throw new Error(`No table candidates configured for key: ${key}`);
+      }
+
+      let lastMissingError = null;
+
+      for (const table of orderedCandidates) {
+        let result;
+        try {
+          result = await executor(table);
+        } catch (error) {
+          if (!isTableMissingError(error)) {
+            throw error;
+          }
+          lastMissingError = error;
+          if (cached === table) {
+            delete tableCacheRef.current[key];
+          }
+          continue;
+        }
+
+        const error = result?.error ?? null;
+
+        if (!error) {
+          tableCacheRef.current[key] = table;
+          return { ...result, table };
+        }
+
+        if (!isTableMissingError(error)) {
+          throw error;
+        }
+
+        lastMissingError = error;
+        if (cached === table) {
+          delete tableCacheRef.current[key];
+        }
+      }
+
+      if (optional) {
+        return { data: null, error: lastMissingError, table: null };
+      }
+
+      if (lastMissingError) {
+        throw lastMissingError;
+      }
+
+      throw new Error(`Unable to resolve table for key: ${key}`);
+    },
+    []
+  );
+
+  const resolveBookId = useCallback(() => {
+    const raw = book?.id ?? id;
+    if (typeof raw === 'number' || typeof raw === 'string') return raw;
+    if (raw && typeof raw.toString === 'function') return raw.toString();
+    return id;
+  }, [book, id]);
+
   const syncReadingState = () => {
     const wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
     const read = JSON.parse(localStorage.getItem('read') || '[]');
@@ -68,7 +151,7 @@ const BookDetailPage = () => {
 
   const formatReply = (reply) => ({
     id: reply.id ?? createFallbackId(),
-    text: reply.text ?? '',
+    text: reply.text ?? reply.content ?? '',
     date: reply.created_at ?? reply.date ?? new Date().toISOString(),
     user: reply.author_name || reply.user || 'Anonymous',
     likes: toNumber(reply.likes_count ?? reply.likes),
@@ -77,7 +160,7 @@ const BookDetailPage = () => {
 
   const formatComment = (comment) => ({
     id: comment.id ?? createFallbackId(),
-    text: comment.text ?? '',
+    text: comment.text ?? comment.content ?? '',
     date: comment.created_at ?? comment.date ?? new Date().toISOString(),
     user: comment.author_name || comment.user || 'Anonymous',
     likes: toNumber(comment.likes_count ?? comment.likes),
@@ -184,82 +267,148 @@ const BookDetailPage = () => {
 
   const loadComments = async () => {
     try {
-      const { data, error } = await supabase
-        .from('book_comments')
-        .select(`
-          id,
-          book_id,
-          user_id,
-          author_name,
-          text,
-          likes_count,
-          upvotes_count,
-          created_at,
-          book_comment_replies (
-            id,
-            comment_id,
-            user_id,
-            author_name,
-            text,
-            likes_count,
-            upvotes_count,
-            created_at
-          )
-        `)
-        .eq('book_id', id)
-        .order('created_at', { ascending: false });
+      const bookId = resolveBookId();
 
-      if (error) throw error;
+      const { data: commentRows } = await runTableQuery(
+        'comments',
+        (table) =>
+          supabase
+            .from(table)
+            .select('id, book_id, user_id, author_name, text, likes_count, upvotes_count, created_at')
+            .eq('book_id', bookId)
+            .order('created_at', { ascending: false })
+      );
 
-      const formatted = Array.isArray(data) ? data.map(formatComment) : [];
+      const commentsData = Array.isArray(commentRows) ? commentRows : [];
+      const commentIds = commentsData.map((comment) => comment.id);
+
+      let repliesData = [];
+      if (commentIds.length > 0) {
+        const { data: replyRows, table: repliesTable } = await runTableQuery(
+          'replies',
+          (table) =>
+            supabase
+              .from(table)
+              .select('id, comment_id, user_id, author_name, text, likes_count, upvotes_count, created_at')
+              .in('comment_id', commentIds),
+          { optional: true }
+        );
+
+        if (repliesTable && Array.isArray(replyRows)) {
+          repliesData = replyRows;
+        }
+      }
+
+      const repliesByComment = repliesData.reduce((acc, reply) => {
+        const key = reply.comment_id;
+        if (!acc[key]) {
+          acc[key] = [];
+        }
+        acc[key].push(reply);
+        return acc;
+      }, {});
+
+      const formatted = commentsData.map((comment) =>
+        formatComment({
+          ...comment,
+          replies: repliesByComment[comment.id] || []
+        })
+      );
+
       setComments(formatted);
 
       if (user) {
-        const [commentReactions, replyReactions, commentReports, replyReports] = await Promise.all([
-          supabase
-            .from('book_comment_reactions')
-            .select('comment_id, reaction_type')
-            .eq('book_id', id)
-            .eq('user_id', user.id),
-          supabase
-            .from('book_reply_reactions')
-            .select('reply_id, reaction_type')
-            .eq('book_id', id)
-            .eq('user_id', user.id),
-          supabase
-            .from('book_comment_reports')
-            .select('comment_id')
-            .eq('book_id', id)
-            .eq('user_id', user.id),
-          supabase
-            .from('book_reply_reports')
-            .select('reply_id')
-            .eq('book_id', id)
-            .eq('user_id', user.id)
+        const [
+          commentReactionsResult,
+          replyReactionsResult,
+          commentReportsResult,
+          replyReportsResult
+        ] = await Promise.all([
+          runTableQuery(
+            'commentReactions',
+            (table) =>
+              supabase
+                .from(table)
+                .select('comment_id, reaction_type')
+                .eq('book_id', bookId)
+                .eq('user_id', user.id),
+            { optional: true }
+          ),
+          runTableQuery(
+            'replyReactions',
+            (table) =>
+              supabase
+                .from(table)
+                .select('reply_id, reaction_type')
+                .eq('book_id', bookId)
+                .eq('user_id', user.id),
+            { optional: true }
+          ),
+          runTableQuery(
+            'commentReports',
+            (table) =>
+              supabase
+                .from(table)
+                .select('comment_id')
+                .eq('book_id', bookId)
+                .eq('user_id', user.id),
+            { optional: true }
+          ),
+          runTableQuery(
+            'replyReports',
+            (table) =>
+              supabase
+                .from(table)
+                .select('reply_id')
+                .eq('book_id', bookId)
+                .eq('user_id', user.id),
+            { optional: true }
+          )
         ]);
 
+        const commentReactions = commentReactionsResult?.table
+          ? Array.isArray(commentReactionsResult.data)
+            ? commentReactionsResult.data
+            : []
+          : [];
+        const replyReactions = replyReactionsResult?.table
+          ? Array.isArray(replyReactionsResult.data)
+            ? replyReactionsResult.data
+            : []
+          : [];
+        const commentReports = commentReportsResult?.table
+          ? Array.isArray(commentReportsResult.data)
+            ? commentReportsResult.data
+            : []
+          : [];
+        const replyReports = replyReportsResult?.table
+          ? Array.isArray(replyReportsResult.data)
+            ? replyReportsResult.data
+            : []
+          : [];
+
         setLikedComments(
-          (commentReactions.data || [])
+          commentReactions
             .filter((reaction) => reaction.reaction_type === 'like')
             .map((reaction) => reaction.comment_id)
         );
         setUpvotedComments(
-          (commentReactions.data || [])
+          commentReactions
             .filter((reaction) => reaction.reaction_type === 'upvote')
             .map((reaction) => reaction.comment_id)
         );
         setLikedReplies(
-          (replyReactions.data || [])
+          replyReactions
             .filter((reaction) => reaction.reaction_type === 'like')
             .map((reaction) => reaction.reply_id)
         );
         setUpvotedReplies(
-          (replyReactions.data || [])
+          replyReactions
             .filter((reaction) => reaction.reaction_type === 'upvote')
             .map((reaction) => reaction.reply_id)
         );
-        setReportedComments((commentReports.data || []).map((report) => report.comment_id));
-        setReportedReplies((replyReports.data || []).map((report) => report.reply_id));
+        setReportedComments(commentReports.map((report) => report.comment_id));
+        setReportedReplies(replyReports.map((report) => report.reply_id));
       } else {
         setLikedComments([]);
         setUpvotedComments([]);
@@ -285,14 +434,16 @@ const BookDetailPage = () => {
     const currentValue = type === 'likes' ? target.likes : target.upvotes;
     const nextValue = Math.max(0, toNumber(currentValue) + delta);
 
-    const { data, error } = await supabase
-      .from('book_comments')
-      .update({ [column]: nextValue })
-      .eq('id', commentId)
-      .select('id, likes_count, upvotes_count')
-      .single();
-
-    if (error) throw error;
+    const { data } = await runTableQuery(
+      'comments',
+      (table) =>
+        supabase
+          .from(table)
+          .update({ [column]: nextValue })
+          .eq('id', commentId)
+          .select('id, likes_count, upvotes_count')
+          .single()
+    );
 
     updateCommentsState((prev) =>
       prev.map((comment) =>
@@ -317,14 +468,16 @@ const BookDetailPage = () => {
     const currentValue = type === 'likes' ? reply.likes : reply.upvotes;
     const nextValue = Math.max(0, toNumber(currentValue) + delta);
 
-    const { data, error } = await supabase
-      .from('book_comment_replies')
-      .update({ [column]: nextValue })
-      .eq('id', replyId)
-      .select('id, likes_count, upvotes_count')
-      .single();
-
-    if (error) throw error;
+    const { data } = await runTableQuery(
+      'replies',
+      (table) =>
+        supabase
+          .from(table)
+          .update({ [column]: nextValue })
+          .eq('id', replyId)
+          .select('id, likes_count, upvotes_count')
+          .single()
+    );
 
     updateCommentsState((prev) =>
       prev.map((comment) =>
@@ -408,33 +561,43 @@ const BookDetailPage = () => {
   };
 
   const handleSubmitComment = async () => {
-    if (!commentText.trim()) return;
+    if (!user) {
+      alert('Sign in to comment on this book.');
+      return;
+    }
+
+    const text = commentText.trim();
+
+    if (!text || isSubmittingComment) return;
+
+    setIsSubmittingComment(true);
 
     try {
       const displayName = user?.user_metadata?.full_name || user?.email || 'Anonymous';
-      const { data, error } = await supabase
-        .from('book_comments')
-        .insert({
-          book_id: id,
-          user_id: user?.id ?? null,
-          author_name: displayName,
-          text: commentText.trim()
-        })
-        .select(`
-          id,
-          book_id,
-          user_id,
-          author_name,
-          text,
-          likes_count,
-          upvotes_count,
-          created_at
-        `)
-        .single();
+      const bookId = resolveBookId();
 
-      if (error) throw error;
+      const { data } = await runTableQuery(
+        'comments',
+        (table) =>
+          supabase
+            .from(table)
+            .insert([
+              {
+                book_id: bookId,
+                user_id: user.id,
+                author_name: displayName,
+                text
+              }
+            ])
+            .select('id, book_id, user_id, author_name, text, likes_count, upvotes_count, created_at')
+            .single()
+      );
 
-      const formatted = formatComment({ ...data, book_comment_replies: [] });
+      if (!data) {
+        throw new Error('Comment insert did not return a row.');
+      }
+
+      const formatted = formatComment({ ...data, replies: [] });
 
       updateCommentsState((prev) =>
         [formatted, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date))
@@ -444,12 +607,15 @@ const BookDetailPage = () => {
 
       if (socketRef.current) {
         socketRef.current.emit('addComment', {
-          bookId: id,
+          bookId,
           comment: formatted
         });
       }
     } catch (error) {
       console.error('Error submitting comment:', error);
+      alert('Unable to post your comment right now. Please try again.');
+    } finally {
+      setIsSubmittingComment(false);
     }
   };
 
@@ -461,29 +627,36 @@ const BookDetailPage = () => {
 
     const hasLiked = likedComments.includes(commentId);
     const delta = hasLiked ? -1 : 1;
+    const bookId = resolveBookId();
 
     try {
       if (hasLiked) {
-        const { error } = await supabase
-          .from('book_comment_reactions')
-          .delete()
-          .eq('comment_id', commentId)
-          .eq('user_id', user.id)
-          .eq('reaction_type', 'like');
-        if (error) throw error;
+        await runTableQuery(
+          'commentReactions',
+          (table) =>
+            supabase
+              .from(table)
+              .delete()
+              .eq('comment_id', commentId)
+              .eq('user_id', user.id)
+              .eq('reaction_type', 'like')
+        );
       } else {
-        const { error } = await supabase
-          .from('book_comment_reactions')
-          .upsert(
-            {
-              book_id: id,
-              comment_id: commentId,
-              user_id: user.id,
-              reaction_type: 'like'
-            },
-            { onConflict: 'comment_id,user_id,reaction_type' }
-          );
-        if (error) throw error;
+        await runTableQuery(
+          'commentReactions',
+          (table) =>
+            supabase
+              .from(table)
+              .upsert(
+                {
+                  book_id: bookId,
+                  comment_id: commentId,
+                  user_id: user.id,
+                  reaction_type: 'like'
+                },
+                { onConflict: 'comment_id,user_id,reaction_type' }
+              )
+        );
       }
 
       await updateCommentCount(commentId, 'likes', delta);
@@ -513,29 +686,36 @@ const BookDetailPage = () => {
 
     const hasUpvoted = upvotedComments.includes(commentId);
     const delta = hasUpvoted ? -1 : 1;
+    const bookId = resolveBookId();
 
     try {
       if (hasUpvoted) {
-        const { error } = await supabase
-          .from('book_comment_reactions')
-          .delete()
-          .eq('comment_id', commentId)
-          .eq('user_id', user.id)
-          .eq('reaction_type', 'upvote');
-        if (error) throw error;
+        await runTableQuery(
+          'commentReactions',
+          (table) =>
+            supabase
+              .from(table)
+              .delete()
+              .eq('comment_id', commentId)
+              .eq('user_id', user.id)
+              .eq('reaction_type', 'upvote')
+        );
       } else {
-        const { error } = await supabase
-          .from('book_comment_reactions')
-          .upsert(
-            {
-              book_id: id,
-              comment_id: commentId,
-              user_id: user.id,
-              reaction_type: 'upvote'
-            },
-            { onConflict: 'comment_id,user_id,reaction_type' }
-          );
-        if (error) throw error;
+        await runTableQuery(
+          'commentReactions',
+          (table) =>
+            supabase
+              .from(table)
+              .upsert(
+                {
+                  book_id: bookId,
+                  comment_id: commentId,
+                  user_id: user.id,
+                  reaction_type: 'upvote'
+                },
+                { onConflict: 'comment_id,user_id,reaction_type' }
+              )
+        );
       }
 
       await updateCommentCount(commentId, 'upvotes', delta);
@@ -565,15 +745,16 @@ const BookDetailPage = () => {
     if (reportedComments.includes(commentId)) return;
 
     try {
-      const { error } = await supabase
-        .from('book_comment_reports')
-        .insert({
-          book_id: id,
-          comment_id: commentId,
-          user_id: user.id
-        });
-
-      if (error) throw error;
+      const bookId = resolveBookId();
+      await runTableQuery(
+        'commentReports',
+        (table) =>
+          supabase.from(table).insert({
+            book_id: bookId,
+            comment_id: commentId,
+            user_id: user.id
+          })
+      );
 
       setReportedComments((prev) => [...prev, commentId]);
       alert('Comment reported. Thank you for helping keep our community safe.');
@@ -595,19 +776,26 @@ const BookDetailPage = () => {
 
     try {
       const displayName = user?.user_metadata?.full_name || user?.email || 'Anonymous';
-      const { data, error } = await supabase
-        .from('book_comment_replies')
-        .insert({
-          book_id: id,
-          comment_id: commentId,
-          user_id: user?.id ?? null,
-          author_name: displayName,
-          text
-        })
-        .select('id, comment_id, user_id, author_name, text, likes_count, upvotes_count, created_at')
-        .single();
+      const bookId = resolveBookId();
+      const { data } = await runTableQuery(
+        'replies',
+        (table) =>
+          supabase
+            .from(table)
+            .insert({
+              book_id: bookId,
+              comment_id: commentId,
+              user_id: user?.id ?? null,
+              author_name: displayName,
+              text
+            })
+            .select('id, comment_id, user_id, author_name, text, likes_count, upvotes_count, created_at')
+            .single()
+      );
 
-      if (error) throw error;
+      if (!data) {
+        throw new Error('Reply insert did not return a row.');
+      }
 
       const formattedReply = formatReply(data);
 
@@ -648,29 +836,36 @@ const BookDetailPage = () => {
 
     const hasLiked = likedReplies.includes(replyId);
     const delta = hasLiked ? -1 : 1;
+    const bookId = resolveBookId();
 
     try {
       if (hasLiked) {
-        const { error } = await supabase
-          .from('book_reply_reactions')
-          .delete()
-          .eq('reply_id', replyId)
-          .eq('user_id', user.id)
-          .eq('reaction_type', 'like');
-        if (error) throw error;
+        await runTableQuery(
+          'replyReactions',
+          (table) =>
+            supabase
+              .from(table)
+              .delete()
+              .eq('reply_id', replyId)
+              .eq('user_id', user.id)
+              .eq('reaction_type', 'like')
+        );
       } else {
-        const { error } = await supabase
-          .from('book_reply_reactions')
-          .upsert(
-            {
-              book_id: id,
-              reply_id: replyId,
-              user_id: user.id,
-              reaction_type: 'like'
-            },
-            { onConflict: 'reply_id,user_id,reaction_type' }
-          );
-        if (error) throw error;
+        await runTableQuery(
+          'replyReactions',
+          (table) =>
+            supabase
+              .from(table)
+              .upsert(
+                {
+                  book_id: bookId,
+                  reply_id: replyId,
+                  user_id: user.id,
+                  reaction_type: 'like'
+                },
+                { onConflict: 'reply_id,user_id,reaction_type' }
+              )
+        );
       }
 
       await updateReplyCount(commentId, replyId, 'likes', delta);
@@ -701,29 +896,36 @@ const BookDetailPage = () => {
 
     const hasUpvoted = upvotedReplies.includes(replyId);
     const delta = hasUpvoted ? -1 : 1;
+    const bookId = resolveBookId();
 
     try {
       if (hasUpvoted) {
-        const { error } = await supabase
-          .from('book_reply_reactions')
-          .delete()
-          .eq('reply_id', replyId)
-          .eq('user_id', user.id)
-          .eq('reaction_type', 'upvote');
-        if (error) throw error;
+        await runTableQuery(
+          'replyReactions',
+          (table) =>
+            supabase
+              .from(table)
+              .delete()
+              .eq('reply_id', replyId)
+              .eq('user_id', user.id)
+              .eq('reaction_type', 'upvote')
+        );
       } else {
-        const { error } = await supabase
-          .from('book_reply_reactions')
-          .upsert(
-            {
-              book_id: id,
-              reply_id: replyId,
-              user_id: user.id,
-              reaction_type: 'upvote'
-            },
-            { onConflict: 'reply_id,user_id,reaction_type' }
-          );
-        if (error) throw error;
+        await runTableQuery(
+          'replyReactions',
+          (table) =>
+            supabase
+              .from(table)
+              .upsert(
+                {
+                  book_id: bookId,
+                  reply_id: replyId,
+                  user_id: user.id,
+                  reaction_type: 'upvote'
+                },
+                { onConflict: 'reply_id,user_id,reaction_type' }
+              )
+        );
       }
 
       await updateReplyCount(commentId, replyId, 'upvotes', delta);
@@ -755,16 +957,17 @@ const BookDetailPage = () => {
     if (reportedReplies.includes(replyId)) return;
 
     try {
-      const { error } = await supabase
-        .from('book_reply_reports')
-        .insert({
-          book_id: id,
-          reply_id: replyId,
-          comment_id: commentId,
-          user_id: user.id
-        });
-
-      if (error) throw error;
+      const bookId = resolveBookId();
+      await runTableQuery(
+        'replyReports',
+        (table) =>
+          supabase.from(table).insert({
+            book_id: bookId,
+            reply_id: replyId,
+            comment_id: commentId,
+            user_id: user.id
+          })
+      );
 
       setReportedReplies((prev) => [...prev, replyId]);
       alert('Reply reported. Thank you for helping keep our community safe.');
@@ -1084,10 +1287,10 @@ const BookDetailPage = () => {
                   />
                   <button
                     onClick={handleSubmitComment}
-                    disabled={!commentText.trim()}
+                    disabled={isSubmittingComment || !commentText.trim()}
                     className="self-start bg-white dark:bg-dark-gray text-dark-gray dark:text-white border border-white dark:border-dark-gray px-4 py-2 text-sm font-medium uppercase tracking-widest hover:opacity-80 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
                   >
-                    Post Comment
+                    {isSubmittingComment ? 'Posting...' : 'Post Comment'}
                   </button>
                 </div>
 
