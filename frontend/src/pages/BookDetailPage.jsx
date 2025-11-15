@@ -269,7 +269,7 @@ const BookDetailPage = () => {
     try {
       const bookId = resolveBookId();
 
-      const { data: commentRows } = await runTableQuery(
+      const commentResult = await runTableQuery(
         'comments',
         (table) =>
           supabase
@@ -279,7 +279,11 @@ const BookDetailPage = () => {
             .order('created_at', { ascending: false })
       );
 
-      const commentsData = Array.isArray(commentRows) ? commentRows : [];
+      if (commentResult.error) {
+        throw commentResult.error;
+      }
+
+      const commentsData = Array.isArray(commentResult.data) ? commentResult.data : [];
       const commentIds = commentsData.map((comment) => comment.id);
 
       let repliesData = [];
@@ -576,7 +580,7 @@ const BookDetailPage = () => {
       const displayName = user?.user_metadata?.full_name || user?.email || 'Anonymous';
       const bookId = resolveBookId();
 
-      const { data } = await runTableQuery(
+      const result = await runTableQuery(
         'comments',
         (table) =>
           supabase
@@ -593,11 +597,15 @@ const BookDetailPage = () => {
             .single()
       );
 
-      if (!data) {
+      if (result.error) {
+        throw result.error;
+      }
+
+      if (!result.data) {
         throw new Error('Comment insert did not return a row.');
       }
 
-      const formatted = formatComment({ ...data, replies: [] });
+      const formatted = formatComment({ ...result.data, replies: [] });
 
       updateCommentsState((prev) =>
         [formatted, ...prev].sort((a, b) => new Date(b.date) - new Date(a.date))
@@ -777,7 +785,7 @@ const BookDetailPage = () => {
     try {
       const displayName = user?.user_metadata?.full_name || user?.email || 'Anonymous';
       const bookId = resolveBookId();
-      const { data } = await runTableQuery(
+      const result = await runTableQuery(
         'replies',
         (table) =>
           supabase
@@ -793,11 +801,15 @@ const BookDetailPage = () => {
             .single()
       );
 
-      if (!data) {
+      if (result.error) {
+        throw result.error;
+      }
+
+      if (!result.data) {
         throw new Error('Reply insert did not return a row.');
       }
 
-      const formattedReply = formatReply(data);
+      const formattedReply = formatReply(result.data);
 
       updateCommentsState((commentsState) =>
         commentsState.map((comment) =>
@@ -825,6 +837,7 @@ const BookDetailPage = () => {
       setReplyingTo(null);
     } catch (error) {
       console.error('Error submitting reply:', error);
+      alert('Unable to post your reply right now. Please try again.');
     }
   };
 
