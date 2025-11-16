@@ -1287,7 +1287,7 @@ const BookDetailPage = () => {
                 </div>
 
                 {/* Rating + Feedback */}
-                <div className="mb-8 rounded-lg border border-white/10 dark:border-dark-gray/10 bg-white/[0.03] dark:bg-dark-gray/[0.03] px-6 py-7">
+                <div className="mb-8 rounded-lg border border-white/10 dark:border-dark-gray/10 bg-white/3 dark:bg-dark-gray/3 px-6 py-7">
                   <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
                     <div className="flex items-center gap-6">
                       <div className="flex flex-col items-start gap-3">
@@ -1335,7 +1335,7 @@ const BookDetailPage = () => {
                 </div>
 
                 {/* Progress */}
-                <div className="mb-8 rounded-lg border border-white/10 dark:border-dark-gray/10 bg-white/[0.02] dark:bg-dark-gray/[0.02] px-6 py-5">
+                <div className="mb-8 rounded-lg border border-white/10 dark:border-dark-gray/10 bg-white/2 dark:bg-dark-gray/2 px-6 py-5">
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-white dark:text-dark-gray text-xs md:text-sm font-medium uppercase tracking-[0.35em]">
                       Reading Progress
@@ -1363,7 +1363,7 @@ const BookDetailPage = () => {
                     </span>
                   </div>
 
-                  <div className="rounded-lg border border-white/10 dark:border-dark-gray/10 bg-white/[0.02] dark:bg-dark-gray/[0.02] p-5 flex flex-col gap-3">
+                  <div className="rounded-lg border border-white/10 dark:border-dark-gray/10 bg-white/2 dark:bg-dark-gray/2 p-5 flex flex-col gap-3">
                     <textarea
                       value={commentText}
                       onChange={(e) => setCommentText(e.target.value)}
@@ -1380,7 +1380,7 @@ const BookDetailPage = () => {
                     </button>
                   </div>
 
-                  <div className="rounded-lg border border-white/10 dark:border-dark-gray/10 bg-white/[0.02] dark:bg-dark-gray/[0.02] overflow-hidden">
+                  <div className="rounded-lg border border-white/10 dark:border-dark-gray/10 bg-white/2 dark:bg-dark-gray/2 overflow-hidden">
                     {comments.length === 0 ? (
                       <p className="text-white/60 dark:text-dark-gray/60 text-sm text-center py-8">
                         No comments yet. Share your thoughts!
@@ -1509,7 +1509,7 @@ const BookDetailPage = () => {
                             )}
 
                             {replyingTo === comment.id && (
-                              <div className="mt-3 space-y-2 border border-white/10 dark:border-dark-gray/10 bg-white/[0.02] dark:bg-dark-gray/[0.02] p-3">
+                              <div className="mt-3 space-y-2 border border-white/10 dark:border-dark-gray/10 bg-white/2 dark:bg-dark-gray/2 p-3">
                                 <textarea
                                   value={replyText[comment.id] || ''}
                                   onChange={(e) => handleReplyChange(comment.id, e.target.value)}
