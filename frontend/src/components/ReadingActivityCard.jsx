@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
 
-function ReadingActivityCard() {
+function ReadingActivityCard({ readingSessions = [], readingStats = null }) {
   const [activityData, setActivityData] = useState({})
-  const [stats, setStats] = useState({ activeDays: 205, pagesRead: 12973 })
+  const [stats, setStats] = useState({ activeDays: 0, pagesRead: 0 })
 
   useEffect(() => {
     // Generate or load reading activity data for the year
@@ -12,9 +12,15 @@ function ReadingActivityCard() {
       const startOfYear = new Date(currentYear, 0, 1)
       const data = {}
       
-      // Get reading sessions from localStorage (in real app, from database)
-      const readingSessions = JSON.parse(localStorage.getItem('reading_sessions') || '[]')
-      const read = JSON.parse(localStorage.getItem('read') || '[]')
+      // Use provided reading sessions or fallback to localStorage
+      let sessions = readingSessions
+      if (!sessions || sessions.length === 0) {
+        try {
+          sessions = JSON.parse(localStorage.getItem('reading_sessions') || '[]')
+        } catch (e) {
+          sessions = []
+        }
+      }
       
       // Generate data for each day of the year
       for (let i = 0; i < 365; i++) {
@@ -29,39 +35,40 @@ function ReadingActivityCard() {
         const day = date.getDate()
         
         // Check if there's activity on this date
-        const session = readingSessions.find(s => s.date === dateStr)
+        const daySessions = sessions.filter(s => {
+          const sessionDate = s.date ? new Date(s.date).toISOString().split('T')[0] : null
+          return sessionDate === dateStr
+        })
         
-        if (session) {
+        if (daySessions.length > 0) {
           // Real activity data
+          const totalPages = daySessions.reduce((sum, s) => sum + (s.pages || 0), 0)
           if (!data[month]) data[month] = {}
           data[month][day] = {
-            pages: session.pages || Math.floor(Math.random() * 100),
-            sessions: session.sessions || Math.floor(Math.random() * 3) + 1,
+            pages: totalPages,
+            sessions: daySessions.length,
             date: new Date(date)
-          }
-        } else {
-          // Simulate some random activity for demo (60% chance of activity)
-          if (Math.random() > 0.4) {
-            if (!data[month]) data[month] = {}
-            data[month][day] = {
-              pages: Math.floor(Math.random() * 100),
-              sessions: Math.floor(Math.random() * 3) + 1,
-              date: new Date(date)
-            }
           }
         }
       }
       
       setActivityData(data)
       
-      // Calculate stats
-      const activeDays = Object.values(data).reduce((sum, month) => sum + Object.keys(month).length, 0)
-      const pagesRead = read.length > 0 ? read.length * 300 : 12973 // Fallback
-      setStats({ activeDays: activeDays || 205, pagesRead })
+      // Use provided stats or calculate from data
+      if (readingStats) {
+        setStats({
+          activeDays: readingStats.activeDays || 0,
+          pagesRead: readingStats.totalPages || 0
+        })
+      } else {
+        const activeDays = Object.values(data).reduce((sum, month) => sum + Object.keys(month).length, 0)
+        const pagesRead = sessions.reduce((sum, s) => sum + (s.pages || 0), 0)
+        setStats({ activeDays, pagesRead })
+      }
     }
 
     generateActivityData()
-  }, [])
+  }, [readingSessions, readingStats])
 
   const getDayIntensity = (month, day) => {
     if (!activityData[month] || !activityData[month][day]) {

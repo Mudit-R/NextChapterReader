@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 
 const Reader = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const id = searchParams.get('id');
   
   const [bookTitle, setBookTitle] = useState('');
@@ -369,7 +370,7 @@ const Reader = () => {
       <div className="reader-main">
         <div className="reader-header">
           <div className="reader-header-left">
-            <Link to="/gallery" className="back-btn">← Back to Library</Link>
+            <button onClick={() => navigate(-1)} className="back-btn" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>← Back</button>
             <h1 className="book-title">{bookTitle || 'Loading…'}</h1>
           </div>
           <button className="dark-mode-toggle" onClick={toggleDarkMode}>

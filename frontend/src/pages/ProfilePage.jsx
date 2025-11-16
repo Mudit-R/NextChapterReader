@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import { useAuth } from '../contexts/AuthContext'
-import { User, Mail, Calendar, ArrowRight, X, Edit2, Save, ArrowUpRight } from 'lucide-react'
+import { User, Mail, Calendar, ArrowRight, X, Edit2, Save, ArrowUpRight, Upload, Camera } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { getUserProfile } from '../lib/personalizationUtils'
+import { fetchUserDashboardData, syncDashboardData } from '../lib/dashboardUtils'
 import ReadingActivityCard from '../components/ReadingActivityCard'
 import ReadingChallengeCard from '../components/ReadingChallengeCard'
 import ReadingStatsCard from '../components/ReadingStatsCard'
@@ -21,6 +22,7 @@ function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false)
   const [profileData, setProfileData] = useState(null)
   const [subscriptionPlan, setSubscriptionPlan] = useState('Free')
+  const [dashboardData, setDashboardData] = useState(null)
   
   // Form state
   const [username, setUsername] = useState('')
@@ -35,6 +37,10 @@ function ProfilePage() {
   const authorDropdownRef = useRef(null)
   const [selectedGenres, setSelectedGenres] = useState([])
   const [selectedLanguages, setSelectedLanguages] = useState([])
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState('')
+  const [profilePhotoFile, setProfilePhotoFile] = useState(null)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const fileInputRef = useRef(null)
 
   const genres = [
     'Fiction', 'Non-Fiction', 'Mystery', 'Romance', 'Science Fiction',
@@ -47,7 +53,25 @@ function ProfilePage() {
 
   useEffect(() => {
     loadProfile()
+    loadDashboardData()
   }, [user])
+
+  const loadDashboardData = async () => {
+    if (!user) return
+    
+    try {
+      const data = await fetchUserDashboardData(user.id)
+      setDashboardData(data)
+      
+      // Sync data in background to ensure it's up to date
+      // This will recalculate and save if needed
+      if (data.readingSessions.length > 0 || data.booksRead.length > 0) {
+        syncDashboardData(user.id, data.readingSessions, data.booksRead)
+      }
+    } catch (error) {
+      console.error('Error loading dashboard data:', error)
+    }
+  }
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -74,6 +98,8 @@ function ProfilePage() {
         setSelectedAuthors((profile.favorite_authors || []).map(name => ({ name, key: name })))
         setSelectedGenres(profile.genres || [])
         setSelectedLanguages(profile.languages || [])
+        setProfilePhotoUrl(profile.profile_photo_url || '')
+        setProfilePhotoFile(null)
         // Get subscription plan from profile or default to 'Free'
         setSubscriptionPlan(profile.subscription_plan || localStorage.getItem('subscription_plan') || 'Free')
       } else {
@@ -165,11 +191,121 @@ function ProfilePage() {
     )
   }
 
-  const handleSave = async () => {
+  const handleFileSelect = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('Please select an image file')
+      return
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Image size must be less than 5MB')
+      return
+    }
+
+    setProfilePhotoFile(file)
+    setUploadingPhoto(true)
+
+    try {
+      // Upload to Supabase Storage
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`
+      const filePath = `profile-photos/${fileName}`
+
+      const { error: uploadError, data } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true
+        })
+
+      if (uploadError) {
+        // If storage bucket doesn't exist, use public URL or data URL
+        console.warn('Storage upload failed, using data URL:', uploadError)
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          setProfilePhotoUrl(reader.result)
+          setUploadingPhoto(false)
+        }
+        reader.readAsDataURL(file)
+        return
+      }
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath)
+
+      setProfilePhotoUrl(publicUrl)
+    } catch (error) {
+      console.error('Error uploading photo:', error)
+      // Fallback to data URL
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setProfilePhotoUrl(reader.result)
+      }
+      reader.readAsDataURL(file)
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
+  const handlePhotoUrlChange = (e) => {
+    setProfilePhotoUrl(e.target.value)
+    setProfilePhotoFile(null)
+  }
+
+  const handleSave = async (e) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
     if (!user) return
     
     setLoading(true)
     try {
+      // If there's a file but no URL yet, upload it first
+      let finalPhotoUrl = profilePhotoUrl
+      if (profilePhotoFile && !profilePhotoUrl) {
+        setUploadingPhoto(true)
+        try {
+          const fileExt = profilePhotoFile.name.split('.').pop()
+          const fileName = `${user.id}-${Date.now()}.${fileExt}`
+          const filePath = `profile-photos/${fileName}`
+
+          const { error: uploadError } = await supabase.storage
+            .from('avatars')
+            .upload(filePath, profilePhotoFile, {
+              cacheControl: '3600',
+              upsert: true
+            })
+
+          if (!uploadError) {
+            const { data: { publicUrl } } = supabase.storage
+              .from('avatars')
+              .getPublicUrl(filePath)
+            finalPhotoUrl = publicUrl
+          } else {
+            // Fallback to data URL
+            finalPhotoUrl = await new Promise((resolve) => {
+              const reader = new FileReader()
+              reader.onloadend = () => {
+                resolve(reader.result)
+              }
+              reader.readAsDataURL(profilePhotoFile)
+            })
+          }
+        } catch (error) {
+          console.error('Error uploading photo:', error)
+        } finally {
+          setUploadingPhoto(false)
+        }
+      }
+
       const updateData = {
         username,
         date_of_birth: dateOfBirth,
@@ -177,6 +313,7 @@ function ProfilePage() {
         favorite_authors: selectedAuthors.map(a => a.name),
         genres: selectedGenres,
         languages: selectedLanguages,
+        profile_photo_url: finalPhotoUrl || null,
       }
       
       const { error } = await supabase
@@ -193,7 +330,14 @@ function ProfilePage() {
       }
       
       setIsEditing(false)
+      setProfilePhotoFile(null)
       await loadProfile()
+      
+      // Dispatch custom event to notify header to refresh profile photo
+      window.dispatchEvent(new CustomEvent('profileUpdated', { 
+        detail: { profile_photo_url: finalPhotoUrl } 
+      }))
+      
       alert('Profile updated successfully!')
     } catch (error) {
       console.error('Error:', error)
@@ -247,9 +391,15 @@ function ProfilePage() {
                 </Link>
 
                 <button
-                  onClick={handleSignOut}
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    e.nativeEvent?.stopImmediatePropagation?.()
+                    handleSignOut()
+                  }}
                   disabled={loading}
-                  className="group inline-flex items-center gap-3 bg-transparent border border-white dark:border-dark-gray text-white dark:text-dark-gray px-6 py-3 text-xs font-medium uppercase tracking-wider transition-all duration-300 hover:border-red-400 dark:hover:border-red-400 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="group inline-flex items-center gap-3 bg-transparent border border-white dark:border-dark-gray text-white dark:text-dark-gray px-6 py-3 text-xs font-medium uppercase tracking-wider transition-all duration-300 hover:border-red-400 dark:hover:border-red-400 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed relative z-0"
                 >
                   <span className="relative z-10 transition-colors duration-300">
                     {loading ? 'Signing Out...' : 'Sign Out'}
@@ -272,8 +422,45 @@ function ProfilePage() {
                     <div className="bg-dark-gray dark:bg-white border-2 border-white/30 dark:border-dark-gray/30 p-4 mb-4">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 rounded-full border-2 border-white/40 dark:border-dark-gray/40 flex items-center justify-center">
-                            <User className="w-6 h-6 text-white dark:text-dark-gray" />
+                          {/* Profile Picture */}
+                          <div className="relative">
+                            {profilePhotoUrl ? (
+                              <>
+                                <img
+                                  src={profilePhotoUrl}
+                                  alt="Profile"
+                                  className="w-12 h-12 rounded-full border-2 border-white/40 dark:border-dark-gray/40 object-cover"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none'
+                                    const fallback = e.target.nextElementSibling
+                                    if (fallback) fallback.style.display = 'flex'
+                                  }}
+                                />
+                                <div className="w-12 h-12 rounded-full border-2 border-white/40 dark:border-dark-gray/40 flex items-center justify-center hidden">
+                                  <User className="w-6 h-6 text-white dark:text-dark-gray" />
+                                </div>
+                              </>
+                            ) : (
+                              <div className="w-12 h-12 rounded-full border-2 border-white/40 dark:border-dark-gray/40 flex items-center justify-center">
+                                <User className="w-6 h-6 text-white dark:text-dark-gray" />
+                              </div>
+                            )}
+                            {isEditing && (
+                              <button
+                                onClick={() => fileInputRef.current?.click()}
+                                className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white dark:bg-dark-gray border-2 border-white dark:border-dark-gray flex items-center justify-center hover:bg-white/90 dark:hover:bg-dark-gray/90 transition-colors"
+                                title="Change photo"
+                              >
+                                <Camera className="w-3 h-3 text-dark-gray dark:text-white" />
+                              </button>
+                            )}
+                            <input
+                              ref={fileInputRef}
+                              type="file"
+                              accept="image/*"
+                              onChange={handleFileSelect}
+                              className="hidden"
+                            />
                           </div>
                           <div className="flex-1">
                             <h2 className="text-xl text-white dark:text-dark-gray font-medium mb-0.5">
@@ -310,7 +497,10 @@ function ProfilePage() {
                           {isEditing ? (
                             <>
                               <button
-                                onClick={() => {
+                                type="button"
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
                                   setIsEditing(false)
                                   loadProfile()
                                 }}
@@ -319,9 +509,16 @@ function ProfilePage() {
                                 Cancel
                               </button>
                               <button
-                                onClick={handleSave}
-                                disabled={loading}
-                                className="px-2 py-1 text-xs text-white/70 dark:text-dark-gray/70 hover:text-white dark:hover:text-dark-gray transition-colors disabled:opacity-50"
+                                type="button"
+                                onClick={async (e) => {
+                                  e.preventDefault()
+                                  e.stopPropagation()
+                                  e.nativeEvent?.stopImmediatePropagation?.()
+                                  await handleSave(e)
+                                }}
+                                disabled={loading || uploadingPhoto}
+                                className="px-2 py-1 text-xs text-white/70 dark:text-dark-gray/70 hover:text-white dark:hover:text-dark-gray transition-colors disabled:opacity-50 relative z-10"
+                                style={{ pointerEvents: loading || uploadingPhoto ? 'none' : 'auto' }}
                               >
                                 {loading ? 'Saving...' : 'Save'}
                               </button>
@@ -553,24 +750,40 @@ function ProfilePage() {
                     </div>
 
                     {/* Reading Activity Card */}
-                    <ReadingActivityCard />
+                    <ReadingActivityCard 
+                      readingSessions={dashboardData?.readingSessions || []}
+                      readingStats={dashboardData?.readingStats}
+                    />
 
                     {/* Reading Challenge Card */}
-                    <ReadingChallengeCard />
+                    <ReadingChallengeCard 
+                      challengeData={dashboardData?.challengeData}
+                    />
 
                     {/* Reading Stats Card */}
-                    <ReadingStatsCard />
+                    <ReadingStatsCard 
+                      readingStats={dashboardData?.readingStats}
+                    />
 
                     {/* Pinned Books and Currently Reading Cards */}
                     <div className="mt-4 mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <PinnedBooksCard />
-                      <CurrentlyReadingCard />
+                      <PinnedBooksCard 
+                        pinnedBooks={dashboardData?.pinnedBooks || []}
+                      />
+                      <CurrentlyReadingCard 
+                        currentlyReading={dashboardData?.currentlyReading || []}
+                      />
                     </div>
 
                     {/* Genre Preferences and Monthly Progress Cards */}
                     <div className="mt-4 mb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <GenrePreferencesCard />
-                      <MonthlyProgressCard />
+                      <GenrePreferencesCard 
+                        genreDistribution={dashboardData?.genreDistribution || {}}
+                      />
+                      <MonthlyProgressCard 
+                        monthlyData={dashboardData?.monthlyProgress || []}
+                        readingStats={dashboardData?.readingStats}
+                      />
                     </div>
                   </>
                 )}

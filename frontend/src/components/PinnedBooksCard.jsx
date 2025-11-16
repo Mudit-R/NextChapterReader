@@ -2,13 +2,27 @@ import { useState, useEffect } from 'react'
 import { Star } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 
-function PinnedBooksCard() {
+function PinnedBooksCard({ pinnedBooks: propPinnedBooks = [] }) {
   const [pinnedBooks, setPinnedBooks] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    loadPinnedBooks()
-  }, [])
+    if (propPinnedBooks && propPinnedBooks.length > 0) {
+      // Use provided data
+      const booksWithRatings = propPinnedBooks.slice(0, 5).map(book => {
+        const rating = localStorage.getItem(`book_rating_${book.id}`)
+        return {
+          ...book,
+          userRating: rating ? parseInt(rating) : 0
+        }
+      })
+      setPinnedBooks(booksWithRatings)
+      setLoading(false)
+    } else {
+      // Fallback to loading from localStorage
+      loadPinnedBooks()
+    }
+  }, [propPinnedBooks])
 
   const loadPinnedBooks = async () => {
     try {
@@ -41,12 +55,7 @@ function PinnedBooksCard() {
       setPinnedBooks(booksWithRatings)
     } catch (error) {
       console.error('Error loading pinned books:', error)
-      // Use demo data if API fails
-      setPinnedBooks([
-        { id: 1, title: 'The Great Gatsby', author: 'F. Scott Fitzgerald', userRating: 5 },
-        { id: 2, title: 'To Kill a Mockingbird', author: 'Harper Lee', userRating: 4 },
-        { id: 3, title: '1984', author: 'George Orwell', userRating: 5 }
-      ])
+      setPinnedBooks([])
     } finally {
       setLoading(false)
     }
