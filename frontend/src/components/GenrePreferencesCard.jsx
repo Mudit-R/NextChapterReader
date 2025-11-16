@@ -80,10 +80,10 @@ function GenrePreferencesCard({ genreDistribution: propGenreDistribution = {} })
 
       setTotalBooks(read.length)
 
-      // Fetch book details from Supabase
+      // Fetch book details from Supabase using new schema
       const { data, error } = await supabase
         .from('books')
-        .select('id, genre, subjects')
+        .select('id, genres, subjects')
         .in('id', read)
 
       if (error) {
@@ -96,13 +96,17 @@ function GenrePreferencesCard({ genreDistribution: propGenreDistribution = {} })
       const total = (data || []).length
 
       ;(data || []).forEach(book => {
-        const genres = book.genre
-          ? [book.genre]
-          : (Array.isArray(book.subjects) ? book.subjects : [book.subjects || 'Unknown'])
+        // Prefer genres[] from new schema, fall back to subjects[] if needed
+        const rawGenres = Array.isArray(book.genres)
+          ? book.genres
+          : Array.isArray(book.subjects)
+          ? book.subjects
+          : []
 
-        genres.forEach(genre => {
+        rawGenres.forEach(genre => {
           if (genre) {
-            const genreKey = genre.trim()
+            const genreKey = genre.toString().trim()
+            if (!genreKey) return
             genreCounts[genreKey] = (genreCounts[genreKey] || 0) + 1
           }
         })

@@ -106,7 +106,9 @@ function usePaginatedBooks({ search, genre, language, sort, reloadFlag }) {
       }
       
       if (genre && genre !== 'All') {
-        query = query.eq("genre", genre);
+        // Filter by genres text[] column (new schema)
+        // Use contains operator so books whose genres array includes the selected genre are returned
+        query = query.contains('genres', [genre]);
       }
       
       if (language && language !== 'All') {

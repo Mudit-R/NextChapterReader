@@ -19,15 +19,18 @@ import { supabase } from '../lib/supabaseClient';
 import { io } from 'socket.io-client';
 
 const TABLE_PREFERENCES = {
-  comments: ['book_discussions', 'book_comments'],
-  replies: ['book_discussion_replies', 'book_comment_replies'],
-  commentReactions: ['book_discussion_reactions', 'book_comment_reactions'],
-  replyReactions: ['book_discussion_reply_reactions', 'book_reply_reactions'],
-  commentReports: ['book_discussion_reports', 'book_comment_reports'],
-  replyReports: ['book_discussion_reply_reports', 'book_reply_reports']
+  comments: ['book_comments'],
+  replies: ['book_comment_replies'],
+  commentReactions: ['book_comment_reactions'],
+  replyReactions: ['book_reply_reactions'],
+  commentReports: ['book_comment_reports'],
+  replyReports: ['book_reply_reports']
 };
 
-const isTableMissingError = (error) => error?.code === '42P01';
+const isTableMissingError = (error) =>
+  error?.code === '42P01' ||
+  error?.code === 'PGRST205' ||
+  (typeof error?.message === 'string' && error.message.includes('Could not find the table'));
 
 const BookDetailPage = () => {
   const { id } = useParams();
@@ -68,6 +71,10 @@ const BookDetailPage = () => {
     const numeric = Number(value);
     return Number.isFinite(numeric) ? numeric : 0;
   };
+
+  const isValidUuid = (value) =>
+    typeof value === 'string' &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 
   const runTableQuery = useCallback(
     async (key, executor, { optional = false } = {}) => {
@@ -138,6 +145,13 @@ const BookDetailPage = () => {
     if (raw && typeof raw.toString === 'function') return raw.toString();
     return id;
   }, [book, id]);
+
+  const getValidBookIdOrNull = () => {
+    const raw = resolveBookId();
+    if (raw == null) return null;
+    const asString = typeof raw === 'string' ? raw : String(raw);
+    return isValidUuid(asString) ? asString : null;
+  };
 
   const syncReadingState = () => {
     const wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
@@ -330,205 +344,219 @@ const BookDetailPage = () => {
   };
 
   const loadRatings = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('book_ratings')
-          .select('rating, user_id')
-          .eq('book_id', id);
+    try {
+      const { data, error } = await supabase
+        .from('book_ratings')
+        .select('rating, user_id')
+        .eq('book_id', id);
 
-        if (error) throw error;
+      if (error) throw error;
 
-        const ratingsData = Array.isArray(data) ? data : [];
-        const total = ratingsData.length;
-        setTotalRatings(total);
+      const ratingsData = Array.isArray(data) ? data : [];
+      const total = ratingsData.length;
+      setTotalRatings(total);
 
-        if (total > 0) {
-          const avg =
-            ratingsData.reduce((sum, entry) => sum + toNumber(entry.rating), 0) / total;
-          setRating(avg.toFixed(1));
-        } else {
-          setRating(0);
-        }
-
-        if (user) {
-          const existing = ratingsData.find((entry) => entry.user_id === user.id);
-          setUserRating(existing ? toNumber(existing.rating) : 0);
-        } else {
-          setUserRating(0);
-        }
-      } catch (error) {
-        console.error('Error loading ratings:', error);
+      if (total > 0) {
+        const avg =
+          ratingsData.reduce((sum, entry) => sum + toNumber(entry.rating), 0) / total;
+        setRating(avg.toFixed(1));
+      } else {
         setRating(0);
-        setTotalRatings(0);
-        if (!user) {
-          setUserRating(0);
-        }
       }
+
+      if (user) {
+        const existing = ratingsData.find((entry) => entry.user_id === user.id);
+        setUserRating(existing ? toNumber(existing.rating) : 0);
+      } else {
+        setUserRating(0);
+      }
+    } catch (error) {
+      console.error('Error loading ratings:', error);
+      setRating(0);
+      setTotalRatings(0);
+      if (!user) {
+        setUserRating(0);
+      }
+    }
   };
 
   const loadComments = async () => {
-      try {
-        const bookId = resolveBookId();
+    try {
+      const bookId = getValidBookIdOrNull();
+      const reactionsBookId = bookId;
 
-        const commentResult = await runTableQuery(
-          'comments',
+      if (!bookId) {
+        setComments([]);
+        setLikedComments([]);
+        setUpvotedComments([]);
+        setReportedComments([]);
+        setLikedReplies([]);
+        setUpvotedReplies([]);
+        setReportedReplies([]);
+        setReplyText({});
+        setReplyingTo(null);
+        return;
+      }
+
+      const commentResult = await runTableQuery(
+        'comments',
+        (table) =>
+          supabase
+            .from(table)
+            .select('id, book_id, user_id, author_name, text, likes_count, upvotes_count, created_at')
+            .eq('book_id', bookId)
+            .order('created_at', { ascending: false })
+      );
+
+      if (commentResult.error) {
+        throw commentResult.error;
+      }
+
+      const commentsData = Array.isArray(commentResult.data) ? commentResult.data : [];
+      const commentIds = commentsData.map((comment) => comment.id);
+
+      let repliesData = [];
+      if (commentIds.length > 0) {
+        const { data: replyRows, table: repliesTable } = await runTableQuery(
+          'replies',
           (table) =>
             supabase
               .from(table)
-              .select('id, book_id, user_id, author_name, text, likes_count, upvotes_count, created_at')
-              .eq('book_id', bookId)
-              .order('created_at', { ascending: false })
+              .select('id, comment_id, user_id, author_name, text, likes_count, upvotes_count, created_at')
+              .in('comment_id', commentIds),
+          { optional: true }
         );
 
-        if (commentResult.error) {
-          throw commentResult.error;
+        if (repliesTable && Array.isArray(replyRows)) {
+          repliesData = replyRows;
         }
+      }
 
-        const commentsData = Array.isArray(commentResult.data) ? commentResult.data : [];
-        const commentIds = commentsData.map((comment) => comment.id);
+      const repliesByComment = repliesData.reduce((acc, reply) => {
+        const key = reply.comment_id;
+        if (!acc[key]) {
+          acc[key] = [];
+        }
+        acc[key].push(reply);
+        return acc;
+      }, {});
 
-        let repliesData = [];
-        if (commentIds.length > 0) {
-          const { data: replyRows, table: repliesTable } = await runTableQuery(
-            'replies',
+      const formatted = commentsData.map((comment) =>
+        formatComment({
+          ...comment,
+          replies: repliesByComment[comment.id] || []
+        })
+      );
+
+      setComments(formatted);
+
+      if (user && reactionsBookId) {
+        const [
+          commentReactionsResult,
+          replyReactionsResult,
+          commentReportsResult,
+          replyReportsResult
+        ] = await Promise.all([
+          runTableQuery(
+            'commentReactions',
             (table) =>
               supabase
                 .from(table)
-                .select('id, comment_id, user_id, author_name, text, likes_count, upvotes_count, created_at')
-                .in('comment_id', commentIds),
+                .select('comment_id, reaction_type')
+                .eq('book_id', reactionsBookId)
+                .eq('user_id', user.id),
             { optional: true }
-          );
+          ),
+          runTableQuery(
+            'replyReactions',
+            (table) =>
+              supabase
+                .from(table)
+                .select('reply_id, reaction_type')
+                .eq('book_id', reactionsBookId)
+                .eq('user_id', user.id),
+            { optional: true }
+          ),
+          runTableQuery(
+            'commentReports',
+            (table) =>
+              supabase
+                .from(table)
+                .select('comment_id')
+                .eq('book_id', reactionsBookId)
+                .eq('user_id', user.id),
+            { optional: true }
+          ),
+          runTableQuery(
+            'replyReports',
+            (table) =>
+              supabase
+                .from(table)
+                .select('reply_id')
+                .eq('book_id', reactionsBookId)
+                .eq('user_id', user.id),
+            { optional: true }
+          )
+        ]);
 
-          if (repliesTable && Array.isArray(replyRows)) {
-            repliesData = replyRows;
-          }
-        }
+        const commentReactions = commentReactionsResult?.table
+          ? Array.isArray(commentReactionsResult.data)
+            ? commentReactionsResult.data
+            : []
+          : [];
+        const replyReactions = replyReactionsResult?.table
+          ? Array.isArray(replyReactionsResult.data)
+            ? replyReactionsResult.data
+            : []
+          : [];
+        const commentReports = commentReportsResult?.table
+          ? Array.isArray(commentReportsResult.data)
+            ? commentReportsResult.data
+            : []
+          : [];
+        const replyReports = replyReportsResult?.table
+          ? Array.isArray(replyReportsResult.data)
+            ? replyReportsResult.data
+            : []
+          : [];
 
-        const repliesByComment = repliesData.reduce((acc, reply) => {
-          const key = reply.comment_id;
-          if (!acc[key]) {
-            acc[key] = [];
-          }
-          acc[key].push(reply);
-          return acc;
-        }, {});
-
-        const formatted = commentsData.map((comment) =>
-          formatComment({
-            ...comment,
-            replies: repliesByComment[comment.id] || []
-          })
+        setLikedComments(
+          commentReactions
+            .filter((reaction) => reaction.reaction_type === 'like')
+            .map((reaction) => reaction.comment_id)
         );
-
-        setComments(formatted);
-
-        if (user) {
-          const [
-            commentReactionsResult,
-            replyReactionsResult,
-            commentReportsResult,
-            replyReportsResult
-          ] = await Promise.all([
-            runTableQuery(
-              'commentReactions',
-              (table) =>
-                supabase
-                  .from(table)
-                  .select('comment_id, reaction_type')
-                  .eq('book_id', bookId)
-                  .eq('user_id', user.id),
-              { optional: true }
-            ),
-            runTableQuery(
-              'replyReactions',
-              (table) =>
-                supabase
-                  .from(table)
-                  .select('reply_id, reaction_type')
-                  .eq('book_id', bookId)
-                  .eq('user_id', user.id),
-              { optional: true }
-            ),
-            runTableQuery(
-              'commentReports',
-              (table) =>
-                supabase
-                  .from(table)
-                  .select('comment_id')
-                  .eq('book_id', bookId)
-                  .eq('user_id', user.id),
-              { optional: true }
-            ),
-            runTableQuery(
-              'replyReports',
-              (table) =>
-                supabase
-                  .from(table)
-                  .select('reply_id')
-                  .eq('book_id', bookId)
-                  .eq('user_id', user.id),
-              { optional: true }
-            )
-          ]);
-
-          const commentReactions = commentReactionsResult?.table
-            ? Array.isArray(commentReactionsResult.data)
-              ? commentReactionsResult.data
-              : []
-            : [];
-          const replyReactions = replyReactionsResult?.table
-            ? Array.isArray(replyReactionsResult.data)
-              ? replyReactionsResult.data
-              : []
-            : [];
-          const commentReports = commentReportsResult?.table
-            ? Array.isArray(commentReportsResult.data)
-              ? commentReportsResult.data
-              : []
-            : [];
-          const replyReports = replyReportsResult?.table
-            ? Array.isArray(replyReportsResult.data)
-              ? replyReportsResult.data
-              : []
-            : [];
-
-          setLikedComments(
-            commentReactions
-              .filter((reaction) => reaction.reaction_type === 'like')
-              .map((reaction) => reaction.comment_id)
-          );
-          setUpvotedComments(
-            commentReactions
-              .filter((reaction) => reaction.reaction_type === 'upvote')
-              .map((reaction) => reaction.comment_id)
-          );
-          setLikedReplies(
-            replyReactions
-              .filter((reaction) => reaction.reaction_type === 'like')
-              .map((reaction) => reaction.reply_id)
-          );
-          setUpvotedReplies(
-            replyReactions
-              .filter((reaction) => reaction.reaction_type === 'upvote')
-              .map((reaction) => reaction.reply_id)
-          );
-          setReportedComments(commentReports.map((report) => report.comment_id));
-          setReportedReplies(replyReports.map((report) => report.reply_id));
-        } else {
-          setLikedComments([]);
-          setUpvotedComments([]);
-          setReportedComments([]);
-          setLikedReplies([]);
-          setUpvotedReplies([]);
-          setReportedReplies([]);
-        }
-
-        setReplyText({});
-        setReplyingTo(null);
-      } catch (error) {
-        console.error('Error loading comments:', error);
-        setComments([]);
+        setUpvotedComments(
+          commentReactions
+            .filter((reaction) => reaction.reaction_type === 'upvote')
+            .map((reaction) => reaction.comment_id)
+        );
+        setLikedReplies(
+          replyReactions
+            .filter((reaction) => reaction.reaction_type === 'like')
+            .map((reaction) => reaction.reply_id)
+        );
+        setUpvotedReplies(
+          replyReactions
+            .filter((reaction) => reaction.reaction_type === 'upvote')
+            .map((reaction) => reaction.reply_id)
+        );
+        setReportedComments(commentReports.map((report) => report.comment_id));
+        setReportedReplies(replyReports.map((report) => report.reply_id));
+      } else {
+        setLikedComments([]);
+        setUpvotedComments([]);
+        setReportedComments([]);
+        setLikedReplies([]);
+        setUpvotedReplies([]);
+        setReportedReplies([]);
       }
+
+      setReplyText({});
+      setReplyingTo(null);
+    } catch (error) {
+      console.error('Error loading comments:', error);
+      setComments([]);
+    }
   };
 
   const loadEngagementData = async () => {
@@ -656,7 +684,7 @@ const BookDetailPage = () => {
     }
   };
 
-  const toggleMarkAsRead = () => {
+  const toggleMarkAsRead = async () => {
     const read = JSON.parse(localStorage.getItem('read') || '[]');
     if (isRead) {
       const updated = read.filter(bid => bid !== id);
@@ -670,6 +698,25 @@ const BookDetailPage = () => {
       setIsRead(true);
       setProgress(100);
       localStorage.setItem(`book_progress_${id}`, '100');
+      if (user && user.id) {
+        try {
+          await supabase
+            .from('user_books')
+            .upsert(
+              {
+                user_id: user.id,
+                book_id: id,
+                current_page: 1,
+                progress_percentage: 100,
+                status: 'read',
+                updated_at: new Date().toISOString()
+              },
+              { onConflict: 'user_id,book_id' }
+            );
+        } catch (error) {
+          console.error('Error marking book as read in database:', error);
+        }
+      }
     }
   };
 
@@ -744,7 +791,9 @@ const BookDetailPage = () => {
 
     const hasLiked = likedComments.includes(commentId);
     const delta = hasLiked ? -1 : 1;
-    const bookId = resolveBookId();
+    const bookId = getValidBookIdOrNull();
+
+    if (!bookId) return;
 
     try {
       if (hasLiked) {
@@ -803,7 +852,9 @@ const BookDetailPage = () => {
 
     const hasUpvoted = upvotedComments.includes(commentId);
     const delta = hasUpvoted ? -1 : 1;
-    const bookId = resolveBookId();
+    const bookId = getValidBookIdOrNull();
+
+    if (!bookId) return;
 
     try {
       if (hasUpvoted) {
@@ -859,10 +910,11 @@ const BookDetailPage = () => {
       alert('Sign in to report comments.');
       return;
     }
+
     if (reportedComments.includes(commentId)) return;
 
     try {
-      const bookId = resolveBookId();
+      const bookId = getValidBookIdOrNull();
       await runTableQuery(
         'commentReports',
         (table) =>
@@ -893,7 +945,7 @@ const BookDetailPage = () => {
 
     try {
       const displayName = user?.user_metadata?.full_name || user?.email || 'Anonymous';
-      const bookId = resolveBookId();
+      const bookId = getValidBookIdOrNull();
       const result = await runTableQuery(
         'replies',
         (table) =>
@@ -958,7 +1010,9 @@ const BookDetailPage = () => {
 
     const hasLiked = likedReplies.includes(replyId);
     const delta = hasLiked ? -1 : 1;
-    const bookId = resolveBookId();
+    const bookId = getValidBookIdOrNull();
+
+    if (!bookId) return;
 
     try {
       if (hasLiked) {
@@ -1018,7 +1072,9 @@ const BookDetailPage = () => {
 
     const hasUpvoted = upvotedReplies.includes(replyId);
     const delta = hasUpvoted ? -1 : 1;
-    const bookId = resolveBookId();
+    const bookId = getValidBookIdOrNull();
+
+    if (!bookId) return;
 
     try {
       if (hasUpvoted) {
@@ -1079,7 +1135,10 @@ const BookDetailPage = () => {
     if (reportedReplies.includes(replyId)) return;
 
     try {
-      const bookId = resolveBookId();
+      const bookId = getValidBookIdOrNull();
+
+      if (!bookId) return;
+
       await runTableQuery(
         'replyReports',
         (table) =>

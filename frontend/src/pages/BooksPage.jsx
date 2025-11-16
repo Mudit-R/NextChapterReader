@@ -63,14 +63,24 @@ function BooksPage() {
 
     // Apply genre filter
     if (selectedGenre) {
-      filtered = filtered.filter(book => {
-        const bookGenre = book.genre || book.subjects?.[0] || book.subjects || ''
-        if (Array.isArray(book.subjects)) {
-          return book.subjects.some(subject => 
-            subject.toLowerCase().includes(selectedGenre.toLowerCase())
-          )
-        }
-        return bookGenre.toLowerCase().includes(selectedGenre.toLowerCase())
+      const normalizedSelected = selectedGenre.toLowerCase()
+
+      filtered = filtered.filter((book) => {
+        // `genres` is a Postgres text[] column -> Supabase returns it as a JS array
+        // Fall back to `genre` if some records still use the old column
+        const rawGenres = book.genres ?? book.genre ?? []
+
+        const genres = Array.isArray(rawGenres)
+          ? rawGenres
+          : rawGenres
+          ? [rawGenres]
+          : []
+
+        return genres.some((g) => {
+          if (!g) return false
+          const value = g.toString().toLowerCase()
+          return value === normalizedSelected || value.includes(normalizedSelected)
+        })
       })
     }
 

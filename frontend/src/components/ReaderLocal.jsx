@@ -51,6 +51,8 @@ const ReaderLocal = () => {
   const viewerRef = useRef(null);
   const headerRef = useRef(null);
   const lastScrollPageRef = useRef(1);
+  // Track last page used for reading session logging
+  const lastSessionPageRef = useRef(1);
   const navigationResetTimeoutRef = useRef(null);
   const pdfDocRef = useRef(null);        // pdf.js PDFDocumentProxy
   const renderTaskRef = useRef(null);    // current page render task
@@ -223,37 +225,35 @@ const ReaderLocal = () => {
               console.error('Error saving reading progress:', upsertError);
             } else {
               console.log('Reading progress saved:', { currentPage: normalizedCurrentPage, progress });
-              
-              // Sync dashboard data to update user profile statistics
-              // Only sync when progress is significant (completed book or every 10% progress)
-              const shouldSync = progress >= 100 || (progress % 10 === 0 && progress > 0);
-              
-              if (shouldSync) {
-                try {
-                  const { syncDashboardData } = await import('../lib/dashboardUtils');
-                  // Fetch current reading sessions and books read to sync
-                  const { data: readingSessions } = await supabase
+
+              // Log reading session for activity dashboard
+              try {
+                const pagesDelta = Math.max(
+                  0,
+                  normalizedCurrentPage - (lastSessionPageRef.current || 1)
+                );
+
+                if (pagesDelta > 0) {
+                  const todayStr = new Date().toISOString().split('T')[0];
+
+                  const { error: sessionError } = await supabase
                     .from('reading_sessions')
-                    .select('*')
-                    .eq('user_id', user.id)
-                    .order('date', { ascending: false });
-                  
-                  const { data: booksRead } = await supabase
-                    .from('user_books')
-                    .select('*, books(*)')
-                    .eq('user_id', user.id)
-                    .eq('status', 'read');
-                  
-                  await syncDashboardData(
-                    user.id,
-                    readingSessions?.data || [],
-                    booksRead?.data || []
-                  );
-                  console.log('Dashboard data synced successfully');
-                } catch (syncError) {
-                  console.warn('Could not sync dashboard data:', syncError);
-                  // Don't fail the save if sync fails
+                    .insert({
+                      user_id: user.id,
+                      book_id: bookId,
+                      date: todayStr,
+                      minutes_read: null,
+                      pages_read: pagesDelta,
+                    });
+
+                  if (sessionError) {
+                    console.error('Error logging reading session:', sessionError);
+                  } else {
+                    lastSessionPageRef.current = normalizedCurrentPage;
+                  }
                 }
+              } catch (sessionErr) {
+                console.error('Unexpected error logging reading session:', sessionErr);
               }
             }
           } else {
@@ -422,6 +422,7 @@ const ReaderLocal = () => {
 
         // Set initial page from saved progress
         lastScrollPageRef.current = savedPage;
+        lastSessionPageRef.current = savedPage;
         setCurrentPage(savedPage);
         
         const initializePdfViewer = async () => {
