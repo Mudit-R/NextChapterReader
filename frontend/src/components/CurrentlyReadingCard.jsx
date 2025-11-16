@@ -101,7 +101,7 @@ function CurrentlyReadingCard({ currentlyReading: propCurrentlyReading = [] }) {
                 <img
                   src={book.cover_image || 'https://via.placeholder.com/64x64?text=No+Cover'}
                   alt={book.title}
-                  className="w-12 h-12 object-cover border-2 border-white/20 dark:border-dark-gray/20 flex-shrink-0"
+                  className="w-12 h-12 object-cover border-2 border-white/20 dark:border-dark-gray/20 shrink-0"
                   onError={(e) => {
                     e.target.src = 'https://via.placeholder.com/64x64?text=No+Cover'
                   }}

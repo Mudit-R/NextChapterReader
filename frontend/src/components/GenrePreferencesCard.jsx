@@ -217,7 +217,7 @@ function GenrePreferencesCard({ genreDistribution: propGenreDistribution = {} })
       {/* Content */}
       <div className="flex flex-col md:flex-row gap-6 flex-1 items-center md:items-start">
         {/* Minimal Pie Chart (40% width) */}
-        <div className="flex-shrink:0 w-full md:w-[40%] flex justify-center items-center py-2">
+        <div className="shrink-0 w-full md:w-[40%] flex justify-center items-center py-2">
           <div className="relative" style={{ width: '100px', height: '100px' }}>
             <svg width="120" height="120" viewBox="0 0 100 100" className="absolute inset-0">
               {piePaths && piePaths.map((path, index) => (
@@ -241,7 +241,7 @@ function GenrePreferencesCard({ genreDistribution: propGenreDistribution = {} })
               <div key={index} className="flex items-center gap-3">
                 {/* Colored dot */}
                 <div
-                  className="w-2.5 h-2.5 rounded-full flex-shrink:0"
+                  className="w-2.5 h-2.5 rounded-full shrink-0"
                   style={{ backgroundColor: color }}
                 />
                 {/* Genre info */}
