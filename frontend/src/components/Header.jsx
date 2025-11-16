@@ -159,7 +159,7 @@ function FilterDropdown({ location, navigate }) {
   const filterOptions = [
     { label: 'Trending', value: 'trending', path: '/trending' },
     { label: 'New Releases', value: 'new', path: '/books?filter=new' },
-    { label: 'Highest Rated', value: 'rated', path: '/books?filter=rated' },
+    { label: 'Highest Rated', value: 'rated', path: '/highest-rated' },
     { label: 'Recommendations', value: 'recommended', path: '/recommended' }
   ]
 
