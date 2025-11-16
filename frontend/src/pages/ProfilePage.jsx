@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { User, Mail, Calendar, ArrowRight, X, Edit2, Save, ArrowUpRight, Upload, Camera } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { getUserProfile } from '../lib/personalizationUtils'
-import { fetchUserDashboardData, syncDashboardData } from '../lib/dashboardUtils'
+import { fetchUserDashboardData } from '../lib/dashboardUtils'
 import ReadingActivityCard from '../components/ReadingActivityCard'
 import ReadingChallengeCard from '../components/ReadingChallengeCard'
 import ReadingStatsCard from '../components/ReadingStatsCard'
@@ -62,12 +62,6 @@ function ProfilePage() {
     try {
       const data = await fetchUserDashboardData(user.id)
       setDashboardData(data)
-      
-      // Sync data in background to ensure it's up to date
-      // This will recalculate and save if needed
-      if (data.readingSessions.length > 0 || data.booksRead.length > 0) {
-        syncDashboardData(user.id, data.readingSessions, data.booksRead)
-      }
     } catch (error) {
       console.error('Error loading dashboard data:', error)
     }
