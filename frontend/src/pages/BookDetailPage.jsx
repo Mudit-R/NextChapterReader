@@ -700,6 +700,7 @@ const BookDetailPage = () => {
       localStorage.setItem(`book_progress_${id}`, '100');
       if (user && user.id) {
         try {
+          const nowIso = new Date().toISOString();
           await supabase
             .from('user_books')
             .upsert(
@@ -709,7 +710,8 @@ const BookDetailPage = () => {
                 current_page: 1,
                 progress_percentage: 100,
                 status: 'read',
-                updated_at: new Date().toISOString()
+                completed_at: nowIso,
+                updated_at: nowIso
               },
               { onConflict: 'user_id,book_id' }
             );
@@ -1224,7 +1226,7 @@ const BookDetailPage = () => {
                       className="w-full bg-white dark:bg-dark-gray text-dark-gray dark:text-white border-2 border-white dark:border-dark-gray px-6 py-3 text-xs font-medium uppercase tracking-widest hover:opacity-80 transition-opacity flex items-center justify-center gap-2"
                     >
                       <BookOpen className="w-3.5 h-3.5" />
-                      {progress > 0 ? 'Continue Reading' : 'Read Now'}
+                      {progress > 0 && progress < 100 ? 'Continue Reading' : 'Read Now'}
                     </button>
 
                     <button
