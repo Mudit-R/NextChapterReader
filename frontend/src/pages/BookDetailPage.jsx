@@ -1275,9 +1275,31 @@ const BookDetailPage = () => {
                   <h1 className="text-2xl md:text-3xl lg:text-4xl text-white dark:text-dark-gray mb-4 leading-tight font-light">
                     {book.title}
                   </h1>
-                  <p className="text-white/70 dark:text-dark-gray/70 text-sm md:text-base mb-3 font-light uppercase tracking-widest">
-                    {book.author || 'Unknown Author'}
-                  </p>
+                  <div className="relative inline-block group">
+                    <p className="text-white/70 dark:text-dark-gray/70 text-sm md:text-base mb-3 font-light uppercase tracking-widest cursor-pointer">
+                      {book.author || 'Unknown Author'}
+                    </p>
+                    {(book.author_bio || book.author_birth_year || book.author_death_year) && (
+                      <div className="absolute z-20 mt-2 w-72 bg-white dark:bg-dark-gray text-dark-gray dark:text-white text-xs p-4 border border-white/20 dark:border-dark-gray/20 shadow-lg opacity-0 scale-95 group-hover:opacity-100 group-hover:scale-100 transition-all duration-150 origin-top-left">
+                        {book.author_bio && (
+                          <p className="mb-2 leading-relaxed">
+                            {book.author_bio}
+                          </p>
+                        )}
+                        {(book.author_birth_year || book.author_death_year) && (
+                          <p className="uppercase tracking-widest text-[0.65rem] text-dark-gray/70 dark:text-white/70">
+                            {book.author_birth_year && String(book.author_birth_year)}
+                            {book.author_birth_year && ' - '}
+                            {book.author_death_year
+                              ? String(book.author_death_year)
+                              : book.author_birth_year
+                                ? 'Present'
+                                : ''}
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
                   <p className="text-xs uppercase tracking-widest mb-4" style={{ color: '#d47249' }}>
                     {genre}
                   </p>
