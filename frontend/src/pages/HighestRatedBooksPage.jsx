@@ -169,9 +169,24 @@ function HighestRatedBooksPage() {
                       </p>
                     )}
                     <div className="mt-2 flex items-center gap-2 text-xs text-white/60 dark:text-dark-gray/60">
-                      <Star className="w-3 h-3" />
+                      <div className="flex items-center gap-0.5">
+                        {[1, 2, 3, 4, 5].map((star) => {
+                          const rating = typeof book.avgRating === 'number' ? book.avgRating : 0
+                          const filledStars = Math.round(rating)
+                          return (
+                            <Star
+                              key={star}
+                              className={`w-3 h-3 ${
+                                star <= filledStars
+                                  ? 'fill-yellow-400 text-yellow-400'
+                                  : 'text-white/20 dark:text-dark-gray/20'
+                              }`}
+                            />
+                          )
+                        })}
+                      </div>
                       <span>
-                        Rating: {book.avgRating?.toFixed(1) ?? '0.0'}{' '}
+                        {(typeof book.avgRating === 'number' ? book.avgRating : 0).toFixed(1)}{' '}
                         <span className="text-white/40 dark:text-dark-gray/40">
                           ({book.ratingCount ?? 0})
                         </span>

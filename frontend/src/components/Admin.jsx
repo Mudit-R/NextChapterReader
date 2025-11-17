@@ -1198,27 +1198,46 @@ const Admin = () => {
         pauseOnHover
         theme="light"
       />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
-          <p className="mt-2 text-sm text-white/60">
-            Manage your books, users, and platform settings
-          </p>
-          <button
-            type="button"
-            onClick={() => {
-              if (showForm) {
-                formRef.current && formRef.current.requestSubmit();
-              } else {
-                setShowForm(true);
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-              }
-            }}
-            className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-black bg-white hover:bg-white/60 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-          >
-            {showForm ? <Save className="w-4 h-4 mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
-            {showForm ? 'Save Book' : 'Add Book'}
-          </button>
+      <div className="max-w-7xl mx-auto px-8 py-8">
+        {/* Hero-style header inspired by Profile page */}
+        <div className="grid grid-cols-12 gap-8 md:gap-16 mb-10">
+          <div className="col-span-12 md:col-span-6">
+            <div className="mb-4">
+              <span className="text-xs font-medium uppercase tracking-widest text-white dark:text-dark-gray border-b-2 border-white dark:border-dark-gray pb-2 inline-block">
+                Admin Area
+              </span>
+            </div>
+            <h1 className="text-5xl md:text-6xl lg:text-7xl text-white dark:text-dark-gray mb-4 leading-none">
+              Admin Dashboard
+            </h1>
+            <p className="text-lg text-white/70 dark:text-dark-gray/70 leading-relaxed font-light max-w-xl">
+              Manage your books, catalogue and platform analytics from a single place.
+            </p>
+            <div className="mt-6 flex flex-wrap gap-4">
+              <button
+                type="button"
+                onClick={() => {
+                  if (showForm) {
+                    formRef.current && formRef.current.requestSubmit();
+                  } else {
+                    setShowForm(true);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }
+                }}
+                className="group inline-flex items-center gap-3 bg-white dark:bg-dark-gray text-dark-gray dark:text-white px-6 py-3 text-xs font-medium uppercase tracking-widest border border-white dark:border-dark-gray transition-all duration-300 hover:bg-dark-gray dark:hover:bg-white hover:text-white dark:hover:text-dark-gray overflow-hidden relative"
+              >
+                {showForm ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                <span className="relative z-10 transition-colors duration-300">
+                  {showForm ? 'Save Book' : 'Add Book'}
+                </span>
+              </button>
+            </div>
+          </div>
+          <div className="col-span-12 md:col-span-6 border-t-2 border-white dark:border-dark-gray pt-6 md:pt-0 md:border-t-0 md:border-l-2 md:pl-12">
+            <p className="text-sm text-white/60 dark:text-dark-gray/60 uppercase tracking-widest">
+              Overview of platform metrics, trending genres and catalogue management.
+            </p>
+          </div>
         </div>
 
         {/* Add/Edit Book Form (directly below header) */}
