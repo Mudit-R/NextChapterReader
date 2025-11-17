@@ -157,12 +157,10 @@ function FilterDropdown({ location, navigate }) {
   ]
 
   const filterOptions = [
-    { label: 'Trending', value: 'trending', path: '/books?filter=trending' },
+    { label: 'Trending', value: 'trending', path: '/trending' },
     { label: 'New Releases', value: 'new', path: '/books?filter=new' },
-    { label: 'Most Popular', value: 'popular', path: '/books?filter=popular' },
-    { label: 'Highest Rated', value: 'rated', path: '/books?filter=rated' },
-    { label: 'Similar Books', value: 'similar', path: '/books?filter=similar' },
-    { label: 'Recently Added', value: 'recent', path: '/books?filter=recent' }
+    { label: 'Highest Rated', value: 'rated', path: '/highest-rated' },
+    { label: 'Recommendations', value: 'recommended', path: '/recommended' }
   ]
 
   const handleMouseEnter = () => {
@@ -261,25 +259,32 @@ function FilterDropdown({ location, navigate }) {
                 Filters
               </h3>
               <div className="space-y-1">
-                {filterOptions.map((option, index) => (
-                  <button
-                    key={option.value}
-                    onClick={() => handleFilterClick(option)}
-                    className={`w-full text-left px-3 py-2 text-xs font-medium uppercase tracking-widest transition-all duration-200 ease-out cursor-pointer relative ${
-                      location.search.includes(option.value)
-                        ? 'bg-dark-gray dark:bg-white text-white dark:text-dark-gray'
-                        : 'text-dark-gray dark:text-white hover:bg-dark-gray/8 dark:hover:bg-white/8 hover:pl-4'
-                    }`}
-                    style={{
-                      animation: `fadeIn 0.2s ease-out ${index * 0.02}s both`
-                    }}
-                  >
-                    {location.search.includes(option.value) && (
-                      <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-1 bg-white dark:bg-dark-gray rounded-full"></span>
-                    )}
-                    {option.label}
-                  </button>
-                ))}
+                {filterOptions.map((option, index) => {
+                  const isActive =
+                    option.value === 'recommended'
+                      ? location.pathname === '/recommended'
+                      : location.search.includes(option.value)
+
+                  return (
+                    <button
+                      key={option.value}
+                      onClick={() => handleFilterClick(option)}
+                      className={`w-full text-left px-3 py-2 text-xs font-medium uppercase tracking-widest transition-all duration-200 ease-out cursor-pointer relative ${
+                        isActive
+                          ? 'bg-dark-gray dark:bg-white text-white dark:text-dark-gray'
+                          : 'text-dark-gray dark:text-white hover:bg-dark-gray/8 dark:hover:bg-white/8 hover:pl-4'
+                      }`}
+                      style={{
+                        animation: `fadeIn 0.2s ease-out ${index * 0.02}s both`
+                      }}
+                    >
+                      {isActive && (
+                        <span className="absolute left-1 top-1/2 -translate-y-1/2 w-1 h-1 bg-white dark:bg-dark-gray rounded-full"></span>
+                      )}
+                      {option.label}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           </div>
@@ -496,12 +501,11 @@ function Header() {
           {/* Logo - Left aligned */}
           <div className="col-span-3">
             <Link to="/" className="flex items-center">
-              <span 
-                className="text-dark-gray dark:text-white text-4xl whitespace-nowrap" 
-                style={{ fontFamily: 'MigraItalic, serif' }}
-              >
-                Next Chapter
-              </span>
+              <img
+                src="/LOGO.svg"
+                alt="NextChapter logo"
+                className="h-10 w-auto"
+              />
             </Link>
           </div>
           

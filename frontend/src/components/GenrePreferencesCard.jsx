@@ -6,25 +6,20 @@ function GenrePreferencesCard({ genreDistribution: propGenreDistribution = {} })
   const [totalBooks, setTotalBooks] = useState(0)
   const [loading, setLoading] = useState(true)
 
-  // Genre-specific colors (light pastel versions)
-  const genreColors = {
-    'Fantasy': '#C4B5FD', // pastel purple
-    'Science Fiction': '#93C5FD', // pastel blue
-    'Mystery': '#86EFAC', // pastel green
-    'Literary Fiction': '#FCD34D', // pastel orange/yellow
-    'Non-Fiction': '#FCA5A5', // pastel red
-    'Romance': '#F9A8D4', // pastel pink
-    'Thriller': '#A5B4FC', // pastel indigo
-    'Historical Fiction': '#FBBF24', // pastel amber
-    'Biography': '#6EE7B7', // pastel teal
-    'Horror': '#F87171', // pastel red-orange
-    'Young Adult': '#60A5FA', // pastel sky blue
-    'Unknown': '#D1D5DB' // pastel gray
-  }
+  // Genre-specific colors (pastel versions of theme colors)
+  const genreColors = [
+    '#6EE7B7', // pastel emerald
+    '#93C5FD', // pastel blue
+    '#FDBA74', // pastel orange
+    '#FDE68A', // pastel amber
+    '#F9A8D4', // pastel pink
+    '#A5B4FC', // pastel indigo
+    '#C4B5FD' // pastel violet
+  ]
 
-  // Get color for genre (with fallback)
-  const getGenreColor = (genre) => {
-    return genreColors[genre] || genreColors['Unknown']
+  // Get color for genre index (wrap around palette)
+  const getGenreColor = (index) => {
+    return genreColors[index % genreColors.length]
   }
 
   useEffect(() => {
@@ -80,10 +75,10 @@ function GenrePreferencesCard({ genreDistribution: propGenreDistribution = {} })
 
       setTotalBooks(read.length)
 
-      // Fetch book details from Supabase
+      // Fetch book details from Supabase using new schema
       const { data, error } = await supabase
         .from('books')
-        .select('id, genre, subjects')
+        .select('id, genres, subjects')
         .in('id', read)
 
       if (error) {
@@ -96,13 +91,17 @@ function GenrePreferencesCard({ genreDistribution: propGenreDistribution = {} })
       const total = (data || []).length
 
       ;(data || []).forEach(book => {
-        const genres = book.genre
-          ? [book.genre]
-          : (Array.isArray(book.subjects) ? book.subjects : [book.subjects || 'Unknown'])
+        // Prefer genres[] from new schema, fall back to subjects[] if needed
+        const rawGenres = Array.isArray(book.genres)
+          ? book.genres
+          : Array.isArray(book.subjects)
+          ? book.subjects
+          : []
 
-        genres.forEach(genre => {
+        rawGenres.forEach(genre => {
           if (genre) {
-            const genreKey = genre.trim()
+            const genreKey = genre.toString().trim()
+            if (!genreKey) return
             genreCounts[genreKey] = (genreCounts[genreKey] || 0) + 1
           }
         })
@@ -185,7 +184,7 @@ function GenrePreferencesCard({ genreDistribution: propGenreDistribution = {} })
 
       return {
         path: pathData,
-        color: getGenreColor(item.genre),
+        color: getGenreColor(index),
         genre: item.genre
       }
     })
@@ -204,7 +203,7 @@ function GenrePreferencesCard({ genreDistribution: propGenreDistribution = {} })
   }
 
   return (
-    <div className="bg-dark-gray dark:bg-white border-2 border-white/30 dark:border-dark-gray/30 p-4 flex flex-col h-fit">
+    <div className="bg-dark-gray dark:bg-white border-2 border-white/30 dark:border-dark-gray/30 p-4 flex flex-col h-full">
       {/* Header */}
       <div className="mb-4">
         <h3 className="text-base text-white dark:text-dark-gray font-semibold uppercase tracking-wider mb-1">
@@ -218,7 +217,7 @@ function GenrePreferencesCard({ genreDistribution: propGenreDistribution = {} })
       {/* Content */}
       <div className="flex flex-col md:flex-row gap-6 flex-1 items-center md:items-start">
         {/* Minimal Pie Chart (40% width) */}
-        <div className="flex-shrink:0 w-full md:w-[40%] flex justify-center items-center py-2">
+        <div className="shrink-0 w-full md:w-[40%] flex justify-center items-center py-2">
           <div className="relative" style={{ width: '100px', height: '100px' }}>
             <svg width="120" height="120" viewBox="0 0 100 100" className="absolute inset-0">
               {piePaths && piePaths.map((path, index) => (
@@ -237,12 +236,12 @@ function GenrePreferencesCard({ genreDistribution: propGenreDistribution = {} })
         {/* Legend (60% width) */}
         <div className="flex-1 w-full md:w-[60%] space-y-2.5">
           {genreData.map((item, index) => {
-            const color = getGenreColor(item.genre)
+            const color = getGenreColor(index)
             return (
               <div key={index} className="flex items-center gap-3">
                 {/* Colored dot */}
                 <div
-                  className="w-2.5 h-2.5 rounded-full flex-shrink:0"
+                  className="w-2.5 h-2.5 rounded-full shrink-0"
                   style={{ backgroundColor: color }}
                 />
                 {/* Genre info */}

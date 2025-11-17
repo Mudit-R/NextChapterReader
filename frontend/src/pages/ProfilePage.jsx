@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { User, Mail, Calendar, ArrowRight, X, Edit2, Save, ArrowUpRight, Upload, Camera } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { getUserProfile } from '../lib/personalizationUtils'
-import { fetchUserDashboardData, syncDashboardData } from '../lib/dashboardUtils'
+import { fetchUserDashboardData } from '../lib/dashboardUtils'
 import ReadingActivityCard from '../components/ReadingActivityCard'
 import ReadingChallengeCard from '../components/ReadingChallengeCard'
 import ReadingStatsCard from '../components/ReadingStatsCard'
@@ -62,16 +62,25 @@ function ProfilePage() {
     try {
       const data = await fetchUserDashboardData(user.id)
       setDashboardData(data)
-      
-      // Sync data in background to ensure it's up to date
-      // This will recalculate and save if needed
-      if (data.readingSessions.length > 0 || data.booksRead.length > 0) {
-        syncDashboardData(user.id, data.readingSessions, data.booksRead)
-      }
     } catch (error) {
       console.error('Error loading dashboard data:', error)
     }
   }
+
+  const handleDateOfBirthChange = (e) => {
+    const raw = e.target.value;
+    if (!raw) {
+      setDateOfBirth("");
+      return;
+    }
+
+    const parts = raw.split("-");
+    const yearPart = (parts[0] || "").replace(/\D/g, "").slice(0, 4);
+    const rest = parts.slice(1).join("-");
+    const normalized = rest ? `${yearPart}-${rest}` : yearPart;
+
+    setDateOfBirth(normalized);
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -549,7 +558,7 @@ function ProfilePage() {
                         </div>
 
                         <div className="flex items-center gap-3 pb-3 border-b-2 border-white/30 dark:border-dark-gray/30">
-                          <Calendar className="w-5 h-5 text-white dark:text-dark-gray opacity-60" />
+                          <Calendar className="w-5 h-5 text-black dark:text-black" />
                           <div className="flex-1">
                             <p className="text-xs font-medium uppercase tracking-wider text-white/60 dark:text-dark-gray/60 mb-1">
                               Date of Birth
@@ -558,11 +567,11 @@ function ProfilePage() {
                               <input
                                 type="date"
                                 value={dateOfBirth}
-                                onChange={(e) => setDateOfBirth(e.target.value)}
-                                className="w-full bg-transparent border-0 border-b-2 border-white/40 dark:border-dark-gray/40 px-0 py-0.5 text-white dark:text-dark-gray text-sm focus:outline-none focus:border-white/60 dark:focus:border-dark-gray/60 transition-colors"
+                                onChange={handleDateOfBirthChange}
+                                className="w-full bg-transparent border-0 border-b-2 border-white/40 dark:border-dark-gray/40 px-0 py-0.5 text-black dark:text-dark-gray text-sm focus:outline-none focus:border-black/60 dark:focus:border-dark-gray/60 transition-colors"
                               />
                             ) : (
-                              <p className="text-sm text-white dark:text-dark-gray">
+                              <p className="text-sm text-black dark:text-dark-gray">
                                 {dateOfBirth ? new Date(dateOfBirth).toLocaleDateString('en-US', { 
                                   year: 'numeric', 
                                   month: 'long', 

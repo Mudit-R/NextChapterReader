@@ -11,10 +11,14 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import ProfilePage from './pages/ProfilePage'
 import PersonalizationPage from './pages/PersonalizationPage'
+import RecommendedBooksPage from './pages/RecommendedBooksPage'
+import TrendingBooksPage from './pages/TrendingBooksPage'
+import HighestRatedBooksPage from './pages/HighestRatedBooksPage'
 import Gallery from './components/Gallery'
 import GalleryLocal from './components/GalleryLocal'
 import Reader from './components/Reader'
 import ReaderLocal from './components/ReaderLocal'
+import Admin from './components/Admin'
 import OAuthCallbackHandler from './components/OAuthCallbackHandler'
 import ProtectedRoute from './components/ProtectedRoute'
 
@@ -46,6 +50,30 @@ function App() {
           element={
             <ProtectedRoute>
               <BooksPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/recommended" 
+          element={
+            <ProtectedRoute>
+              <RecommendedBooksPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/trending" 
+          element={
+            <ProtectedRoute>
+              <TrendingBooksPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/highest-rated" 
+          element={
+            <ProtectedRoute>
+              <HighestRatedBooksPage />
             </ProtectedRoute>
           } 
         />
@@ -118,6 +146,14 @@ function App() {
           element={
             <ProtectedRoute>
               <ReaderLocal />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin" 
+          element={
+            <ProtectedRoute>
+              <Admin />
             </ProtectedRoute>
           } 
         />

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
-import { Search, X } from 'lucide-react'
+import { Search, X, TrendingUp } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../contexts/AuthContext'
 import { hasCompletedPersonalization } from '../lib/personalizationUtils'
@@ -63,14 +63,24 @@ function BooksPage() {
 
     // Apply genre filter
     if (selectedGenre) {
-      filtered = filtered.filter(book => {
-        const bookGenre = book.genre || book.subjects?.[0] || book.subjects || ''
-        if (Array.isArray(book.subjects)) {
-          return book.subjects.some(subject => 
-            subject.toLowerCase().includes(selectedGenre.toLowerCase())
-          )
-        }
-        return bookGenre.toLowerCase().includes(selectedGenre.toLowerCase())
+      const normalizedSelected = selectedGenre.toLowerCase()
+
+      filtered = filtered.filter((book) => {
+        // `genres` is a Postgres text[] column -> Supabase returns it as a JS array
+        // Fall back to `genre` if some records still use the old column
+        const rawGenres = book.genres ?? book.genre ?? []
+
+        const genres = Array.isArray(rawGenres)
+          ? rawGenres
+          : rawGenres
+          ? [rawGenres]
+          : []
+
+        return genres.some((g) => {
+          if (!g) return false
+          const value = g.toString().toLowerCase()
+          return value === normalizedSelected || value.includes(normalizedSelected)
+        })
       })
     }
 
@@ -204,6 +214,7 @@ function BooksPage() {
                   </button>
                 )}
               </div>
+             
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
               {filteredBooks.map((book) => (
