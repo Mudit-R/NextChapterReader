@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
-import { hasCompletedPersonalization } from '../lib/personalizationUtils'
+import { hasCompletedPersonalization, isAdmin } from '../lib/personalizationUtils'
 import { reportLoginActivity } from '../lib/loginActivity'
 
 const AuthContext = createContext()
@@ -48,15 +48,24 @@ export function AuthProvider({ children }) {
         
         // Only redirect from sign-in/sign-up pages, NOT from landing page
         if (currentPath === '/sign-in' || currentPath === '/sign-up') {
-          // Check personalization status
-          hasCompletedPersonalization(session.user.id).then(completed => {
-            if (!completed) {
-              console.log('🚀 Redirecting to /personalization')
-              window.location.href = '/personalization'
-            } else {
-              console.log('🚀 Redirecting to /books')
-              window.location.href = '/books'
+          // Admins go directly to admin dashboard
+          isAdmin(session.user.id).then((admin) => {
+            if (admin) {
+              console.log('🚀 Redirecting admin to /admin')
+              window.location.href = '/admin'
+              return
             }
+
+            // Normal users: check personalization status
+            hasCompletedPersonalization(session.user.id).then(completed => {
+              if (!completed) {
+                console.log('🚀 Redirecting to /personalization')
+                window.location.href = '/personalization'
+              } else {
+                console.log('🚀 Redirecting to /books')
+                window.location.href = '/books'
+              }
+            })
           })
         } else {
           console.log('⚠️ Not redirecting - current path is:', currentPath)

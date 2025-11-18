@@ -21,11 +21,24 @@ function MonthlyProgressCard({ monthlyData: propMonthlyData = null, readingStats
         setTotalBooks(propMonthlyData.reduce((sum, m) => sum + m.books, 0))
         setTotalPages(propMonthlyData.reduce((sum, m) => sum + m.pages, 0))
       }
-      setLoading(false)
     } else {
       // Fallback to loading from database/localStorage
-      loadMonthlyData()
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+      const emptyData = months.map(month => ({
+        month,
+        books: 0,
+        pages: 0
+      }))
+      setMonthlyData(emptyData)
+      if (propReadingStats) {
+        setTotalBooks(propReadingStats.totalBooks || 0)
+        setTotalPages(propReadingStats.totalPages || 0)
+      } else {
+        setTotalBooks(0)
+        setTotalPages(0)
+      }
     }
+    setLoading(false)
   }, [propMonthlyData, propReadingStats])
 
   const loadMonthlyData = async () => {

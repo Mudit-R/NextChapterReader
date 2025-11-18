@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
+import { useAuth } from "../contexts/AuthContext";
+import { getUserProfile } from "../lib/personalizationUtils";
+import { getTrendingBooks } from "../lib/trendingUtils";
 import {
   Plus,
   Edit2,
@@ -28,7 +31,10 @@ import {
   ChevronDown,
   ChevronUp,
   SlidersHorizontal,
-  Flag
+  Flag,
+  Mail,
+  Calendar,
+  Camera
 } from "lucide-react";
 import {
   LineChart,
@@ -49,6 +55,12 @@ import { format, subMonths } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+
+async function fetchTotalUsers() {
+  const { data, error } = await supabase.rpc('total_users')
+  if (error) throw error
+  return data ?? 0
+}
 
 // Constants
 const PAGE_SIZE = 10;
@@ -176,8 +188,15 @@ function useDashboardMetrics() {
     revenue: 0,
     monthlyGrowth: 0,
     topGenres: [],
-    recentActivity: []
+    recentActivity: [],
+    paidUsers: 0,
+    newComments: 0,
+    userRetention: 0,
+    reportedComments: 0,
+    reportedCommentsChange: null,
+    reportedCommentsList: []
   });
+  const [monthlySeries, setMonthlySeries] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -191,19 +210,53 @@ function useDashboardMetrics() {
           .from('books')
           .select('*', { count: 'exact', head: true });
 
-        // Fetch user metrics (example - adjust based on your auth setup)
-        const { count: userCount } = await supabase
-          .from('profiles')
-          .select('*', { count: 'exact', head: true });
+        // Fetch total users via RPC (not affected by RLS)
+        const totalUsers = await fetchTotalUsers();
 
         // Fetch revenue data (example - adjust based on your payment system)
         const { data: revenueData } = await supabase
           .from('transactions')
-          .select('amount')
+          .select('amount, created_at')
           .eq('status', 'completed');
 
-        // Calculate total revenue
-        const totalRevenue = revenueData?.reduce((sum, txn) => sum + (parseFloat(txn.amount) || 0), 0) || 0;
+        const { count: newCommentsCount } = await supabase
+          .from('book_comments')
+          .select('*', { count: 'exact', head: true });
+
+        const { count: reportedCommentsCount } = await supabase
+          .from('book_comment_reports')
+          .select('*', { count: 'exact', head: true });
+
+        const { data: reportedCommentsList } = await supabase
+          .from('book_comment_reports')
+          .select(`
+            id,
+            comment_id,
+            book_id,
+            created_at,
+            comment:book_comments(text),
+            book:books(title)
+          `)
+          .order('created_at', { ascending: false })
+          .limit(10);
+
+        // Fetch user sessions for retention and monthly active subscriptions
+        const { data: sessionRows, count: totalSessionCount } = await supabase
+          .from('user_session')
+          .select('user_id, created_at', { count: 'exact' });
+
+        // Calculate user retention based on sessions in the last 7 days
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+        const sessionCountLast7 = (sessionRows || []).filter(row => {
+          const created = row.created_at ? new Date(row.created_at) : null;
+          return created && created >= sevenDaysAgo;
+        }).length;
+
+        const userRetention = totalUsers && sessionCountLast7
+          ? Math.min(100, Math.round((sessionCountLast7 / totalUsers) * 100))
+          : 0;
 
         // Fetch genre distribution
         const { data: genreData } = await supabase
@@ -219,14 +272,56 @@ function useDashboardMetrics() {
           .order('created_at', { ascending: false })
           .limit(5);
 
+        // Build monthly series for the revenue/subscriptions chart from DB data
+        const now = new Date();
+        const year = now.getFullYear();
+        const monthlyBuckets = Array.from({ length: 12 }, (_, index) => ({
+          month: format(new Date(year, index, 1), 'MMM'),
+          revenue: 0,
+          subscriptionsUsers: new Set(),
+        }));
+
+        // Aggregate revenue per month (current year)
+        (revenueData || []).forEach(txn => {
+          if (!txn.created_at) return;
+          const created = new Date(txn.created_at);
+          if (created.getFullYear() !== year) return;
+          const monthIndex = created.getMonth();
+          const amount = parseFloat(txn.amount) || 0;
+          monthlyBuckets[monthIndex].revenue += amount;
+        });
+
+        // Aggregate distinct active users per month from sessions (approximate active subscriptions)
+        (sessionRows || []).forEach(session => {
+          if (!session.created_at || !session.user_id) return;
+          const created = new Date(session.created_at);
+          if (created.getFullYear() !== year) return;
+          const monthIndex = created.getMonth();
+          monthlyBuckets[monthIndex].subscriptionsUsers.add(session.user_id);
+        });
+
+        const computedMonthlySeries = monthlyBuckets.map(bucket => ({
+          month: bucket.month,
+          revenue: Math.round(bucket.revenue),
+          subscriptions: bucket.subscriptionsUsers.size,
+        }));
+
+        setMonthlySeries(computedMonthlySeries);
+
         setMetrics({
           totalBooks: bookCount || 0,
-          totalUsers: userCount || 0,
-          activeUsers: Math.floor((userCount || 0) * 0.65), // Example calculation
-          revenue: totalRevenue,
+          totalUsers: totalUsers || 0,
+          activeUsers: Math.floor((totalUsers || 0) * 0.65), // Example calculation
+          revenue: 0,
           monthlyGrowth: 12.5, // Example growth percentage
           topGenres: genreData || [],
-          recentActivity: recentActivity || []
+          recentActivity: recentActivity || [],
+          paidUsers: 0,
+          newComments: newCommentsCount || 0,
+          userRetention,
+          reportedComments: reportedCommentsCount || 0,
+          reportedCommentsChange: null,
+          reportedCommentsList: reportedCommentsList || []
         });
       } catch (err) {
         console.error("Error fetching metrics:", err);
@@ -252,7 +347,7 @@ function useDashboardMetrics() {
     };
   }, []);
 
-  return { metrics, loading, error };
+  return { metrics, monthlySeries, loading, error };
 }
 
 const Admin = () => {
@@ -278,11 +373,25 @@ const Admin = () => {
   });
   const [reloadFlag, setReloadFlag] = useState(0);
   const formRef = useRef(null);
+  const adminFileInputRef = useRef(null);
+  const { user, signOut } = useAuth();
+  const [adminProfile, setAdminProfile] = useState(null);
+  const [adminProfileLoading, setAdminProfileLoading] = useState(true);
+  const [adminIsEditing, setAdminIsEditing] = useState(false);
+  const [adminUsername, setAdminUsername] = useState('');
+  const [adminDateOfBirth, setAdminDateOfBirth] = useState('');
+  const [adminDescription, setAdminDescription] = useState('');
+  const [adminProfilePhotoUrl, setAdminProfilePhotoUrl] = useState('');
+  const [adminProfilePhotoFile, setAdminProfilePhotoFile] = useState(null);
+  const [adminUploadingPhoto, setAdminUploadingPhoto] = useState(false);
+  const [adminImageError, setAdminImageError] = useState(false);
+  const [signOutLoading, setSignOutLoading] = useState(false);
+  const [trendingBooks, setTrendingBooks] = useState([]);
   // Using metrics from useDashboardMetrics hook instead of local state
   // Remove the duplicate stats state
   
   // Use custom hooks for data fetching
-  const { metrics, loading: metricsLoading } = useDashboardMetrics();
+  const { metrics, monthlySeries, loading: metricsLoading } = useDashboardMetrics();
   
   const {
     books,
@@ -325,9 +434,9 @@ const Admin = () => {
 
   // Format currency
   const formatCurrency = (value) =>
-    new Intl.NumberFormat("en-US", {
+    new Intl.NumberFormat("en-IN", {
       style: "currency",
-      currency: "USD",
+      currency: "INR",
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value || 0);
@@ -376,7 +485,7 @@ const Admin = () => {
     { 
       label: "Paid Users", 
       value: metrics.paidUsers?.toLocaleString("en-US") || '1,245',
-      icon: <Users className="w-6 h-6 text-green-500" />,
+      icon: <User className="w-6 h-6 text-green-500" />,
       change: '+12.1%',
       changeType: 'increase'
     },
@@ -388,8 +497,8 @@ const Admin = () => {
       changeType: 'increase'
     },
     { 
-      label: "New Reviews", 
-      value: metrics.newReviews?.toLocaleString() || '42',
+      label: "New Comments", 
+      value: metrics.newComments?.toLocaleString() || '0',
       icon: <Star className="w-6 h-6 text-purple-500" />,
       change: '+15.3%',
       changeType: 'increase'
@@ -397,34 +506,54 @@ const Admin = () => {
     { 
       label: "User Retention", 
       value: `${metrics.userRetention || '78'}%`,
-      icon: <Users className="w-6 h-6 text-pink-500" />,
+      icon: <BarChart2 className="w-6 h-6 text-pink-500" />,
       change: '+2.4%',
       changeType: 'increase'
     }
   ];
 
-  // Generate sample data for charts
+  // Generate smoother synthetic data for charts (12 months for current year)
   const generateMonthlyData = () => {
     const months = [];
     const now = new Date();
-    
-    for (let i = 5; i >= 0; i--) {
-      const date = subMonths(now, i);
+    const yearStart = new Date(now.getFullYear(), 0, 1); // Jan 1st of current year
+
+    let revenue = 50000; // base revenue in INR
+    let subscriptions = 200; // base active subscriptions count
+
+    for (let i = 0; i < 12; i++) {
+      const date = new Date(yearStart.getFullYear(), yearStart.getMonth() + i, 1);
+
+      // Apply small month-over-month change
+      const revenueGrowthFactor = 1 + (Math.random() * 0.08 - 0.02); // between -2% and +6%
+      const subsGrowthFactor = 1 + (Math.random() * 0.10 - 0.03);    // between -3% and +7%
+
+      revenue = Math.max(20000, revenue * revenueGrowthFactor);
+      subscriptions = Math.max(50, subscriptions * subsGrowthFactor);
+
       months.push({
-        month: format(date, 'MMM yyyy'),
-        revenue: Math.floor(Math.random() * 10000) + 5000,
-        users: Math.floor(Math.random() * 500) + 200,
-        subscriptions: Math.floor(Math.random() * 400) + 150,
-        books: Math.floor(Math.random() * 100) + 50
+        month: format(date, 'MMM'), // Jan, Feb, ...
+        revenue: Math.round(revenue),
+        subscriptions: Math.round(subscriptions)
       });
     }
+
     return months;
   };
 
   const monthlyData = useMemo(() => generateMonthlyData(), []);
 
-  // Top genres data
-  const genreColors = ["#2563EB", "#7C3AED", "#10B981", "#F59E0B", "#EF4444"];
+  // Top genres data (from metrics, used as fallback)
+  // Pastel genre colors (aligned with GenrePreferencesCard)
+  const genreColors = [
+    '#6EE7B7', // pastel emerald
+    '#93C5FD', // pastel blue
+    '#FDBA74', // pastel orange
+    '#FDE68A', // pastel amber
+    '#F9A8D4', // pastel pink
+    '#A5B4FC', // pastel indigo
+    '#C4B5FD', // pastel violet
+  ];
   const topGenres = metrics.topGenres.length > 0 
     ? metrics.topGenres 
     : [
@@ -434,6 +563,41 @@ const Admin = () => {
       { genre: 'Romance', count: 64 },
       { genre: 'Non-Fiction', count: 55 }
     ];
+
+  // Trending books (same ones shown in the Trending Books card)
+  // Genre distribution based on trending books (for Trending Genres card)
+  const trendingGenresDistribution = trendingBooks.reduce((acc, book) => {
+    const rawGenres = Array.isArray(book.genres)
+      ? book.genres
+      : book.genre
+      ? [book.genre]
+      : [];
+
+    rawGenres.forEach((genre) => {
+      if (!genre) return;
+      const key = genre.toString().trim();
+      if (!key) return;
+      acc[key] = (acc[key] || 0) + 1;
+    });
+
+    return acc;
+  }, {});
+
+  // Convert distribution object into sorted list with percentages (top 5)
+  const trendingGenresList = (() => {
+    const entries = Object.entries(trendingGenresDistribution);
+    if (entries.length === 0) return [];
+
+    const total = entries.reduce((sum, [, count]) => sum + count, 0);
+    return entries
+      .map(([genre, count]) => ({
+        genre,
+        count,
+        percentage: total > 0 ? Math.round((count / total) * 100) : 0,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  })();
 
   // Recent activity data
   const recentActivity = metrics.recentActivity.length > 0
@@ -803,6 +967,37 @@ const Admin = () => {
     }
   };
 
+  // Handle actions on reported comments (dismiss report or remove comment)
+  const handleReportAction = async (report, action) => {
+    try {
+      if (action === 'dismiss') {
+        const { error } = await supabase
+          .from('book_comment_reports')
+          .delete()
+          .eq('id', report.id);
+        if (error) throw error;
+        toast.success('Report dismissed');
+      } else if (action === 'remove-comment') {
+        const { error: deleteCommentError } = await supabase
+          .from('book_comments')
+          .delete()
+          .eq('id', report.comment_id);
+        if (deleteCommentError) throw deleteCommentError;
+
+        const { error: deleteReportsError } = await supabase
+          .from('book_comment_reports')
+          .delete()
+          .eq('comment_id', report.comment_id);
+        if (deleteReportsError) throw deleteReportsError;
+
+        toast.success('Comment removed and reports cleared');
+      }
+    } catch (error) {
+      console.error('Error handling report action:', error);
+      toast.error(`Failed to update report: ${error.message}`);
+    }
+  };
+
   // Reset form to initial state
   const resetForm = () => {
     setFormData({
@@ -834,17 +1029,241 @@ const Admin = () => {
     navigate('/');
   }, [navigate]);
 
-  const handleSignOut = useCallback(async () => {
-    try {
-      if (supabase?.auth?.signOut) {
-        await supabase.auth.signOut();
-      }
-    } catch (e) {
-      // no-op
-    } finally {
-      navigate('/');
+  const handleSignOut = async () => {
+    setSignOutLoading(true);
+    const { error } = await signOut();
+    if (error) {
+      console.error('Sign out error:', error);
     }
-  }, [navigate]);
+    setSignOutLoading(false);
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchProfile = async () => {
+      if (!user) {
+        if (!cancelled) {
+          setAdminProfile(null);
+          setAdminProfileLoading(false);
+          setAdminIsEditing(false);
+          setAdminUsername('');
+          setAdminDateOfBirth('');
+          setAdminDescription('');
+          setAdminProfilePhotoUrl('');
+          setAdminProfilePhotoFile(null);
+          setAdminImageError(false);
+        }
+        return;
+      }
+
+      try {
+        setAdminProfileLoading(true);
+        const profile = await getUserProfile(user.id);
+        if (!cancelled) {
+          setAdminProfile(profile || null);
+          setAdminUsername(profile?.username || user?.email?.split('@')[0] || 'Admin');
+          setAdminDateOfBirth(profile?.date_of_birth || '');
+          setAdminDescription(profile?.description || '');
+          setAdminProfilePhotoUrl(profile?.profile_photo_url || '');
+          setAdminProfilePhotoFile(null);
+          setAdminImageError(false);
+          setAdminIsEditing(false);
+          setAdminProfileLoading(false);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          console.error('Error loading admin profile:', error);
+          setAdminProfile(null);
+          setAdminProfileLoading(false);
+          setAdminIsEditing(false);
+        }
+      }
+    };
+
+    fetchProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
+
+  // Load trending books for admin dashboard (same logic as TrendingBooksPage)
+  useEffect(() => {
+    const loadTrending = async () => {
+      try {
+        const books = await getTrendingBooks(8, 30);
+        setTrendingBooks(books || []);
+      } catch (err) {
+        console.error('Error loading trending books for admin:', err);
+        setTrendingBooks([]);
+      }
+    };
+
+    loadTrending();
+  }, []);
+
+  const handleAdminDateOfBirthChange = (e) => {
+    const raw = e.target.value;
+    if (!raw) {
+      setAdminDateOfBirth('');
+      return;
+    }
+
+    const parts = raw.split('-');
+    const yearPart = (parts[0] || '').replace(/\D/g, '').slice(0, 4);
+    const rest = parts.slice(1).join('-');
+    const normalized = rest ? `${yearPart}-${rest}` : yearPart;
+
+    setAdminDateOfBirth(normalized);
+  };
+
+  const handleAdminFileSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB');
+      return;
+    }
+
+    setAdminProfilePhotoFile(file);
+    setAdminUploadingPhoto(true);
+
+    try {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+      const filePath = `profile-photos/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.warn('Storage upload failed, using data URL:', uploadError);
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setAdminProfilePhotoUrl(reader.result);
+          setAdminUploadingPhoto(false);
+        };
+        reader.readAsDataURL(file);
+        return;
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from('avatars').getPublicUrl(filePath);
+
+      setAdminProfilePhotoUrl(publicUrl);
+    } catch (error) {
+      console.error('Error uploading admin photo:', error);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAdminProfilePhotoUrl(reader.result);
+      };
+      reader.readAsDataURL(file);
+    } finally {
+      setAdminUploadingPhoto(false);
+    }
+  };
+
+  const handleAdminSave = async (e) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    if (!user) return;
+
+    setAdminProfileLoading(true);
+    try {
+      let finalPhotoUrl = adminProfilePhotoUrl;
+
+      if (adminProfilePhotoFile && !adminProfilePhotoUrl) {
+        setAdminUploadingPhoto(true);
+        try {
+          const fileExt = adminProfilePhotoFile.name.split('.').pop();
+          const fileName = `${user.id}-${Date.now()}.${fileExt}`;
+          const filePath = `profile-photos/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('avatars')
+            .upload(filePath, adminProfilePhotoFile, {
+              cacheControl: '3600',
+              upsert: true,
+            });
+
+          if (!uploadError) {
+            const {
+              data: { publicUrl },
+            } = supabase.storage.from('avatars').getPublicUrl(filePath);
+            finalPhotoUrl = publicUrl;
+          } else {
+            finalPhotoUrl = await new Promise((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                resolve(reader.result);
+              };
+              reader.readAsDataURL(adminProfilePhotoFile);
+            });
+          }
+        } catch (error) {
+          console.error('Error uploading admin photo:', error);
+        } finally {
+          setAdminUploadingPhoto(false);
+        }
+      }
+
+      const updateData = {
+        username: adminUsername,
+        date_of_birth: adminDateOfBirth || null,
+        description: adminDescription || null,
+        profile_photo_url: finalPhotoUrl || null,
+      };
+
+      const { error } = await supabase
+        .from('user_profiles')
+        .upsert(
+          {
+            user_id: user.id,
+            ...updateData,
+          },
+          { onConflict: 'user_id' }
+        );
+
+      if (error) {
+        console.error('Error saving admin profile:', error);
+        toast.error('Failed to save admin profile. Please try again.');
+        setAdminProfileLoading(false);
+        return;
+      }
+
+      setAdminIsEditing(false);
+      setAdminProfilePhotoFile(null);
+
+      const refreshed = await getUserProfile(user.id);
+      setAdminProfile(refreshed || null);
+      setAdminUsername(refreshed?.username || user?.email?.split('@')[0] || 'Admin');
+      setAdminDateOfBirth(refreshed?.date_of_birth || '');
+      setAdminDescription(refreshed?.description || '');
+      setAdminProfilePhotoUrl(refreshed?.profile_photo_url || finalPhotoUrl || '');
+      setAdminImageError(false);
+
+      toast.success('Admin profile updated successfully!');
+    } catch (error) {
+      console.error('Error saving admin profile:', error);
+      toast.error('An error occurred while saving admin profile. Please try again.');
+    } finally {
+      setAdminProfileLoading(false);
+    }
+  };
 
 // ...
   if (metricsLoading) {
@@ -866,15 +1285,17 @@ const Admin = () => {
       <header className="bg-white dark:bg-dark-gray border-b border-dark-gray dark:border-white sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-8 py-4">
           <div className="grid grid-cols-12 items-center">
-            {/* Left spacer */}
-            <div className="col-span-3" />
-
-            {/* Centered title */}
-            <div className="col-span-6 flex items-center justify-center">
-              <span className="text-sm md:text-base font-semibold uppercase tracking-[0.3em] text-dark-gray dark:text-white">
-                NextChapter
-              </span>
+            {/* Left logo / brand */}
+            <div className="col-span-3 flex items-center">
+              <img
+                src="/LOGO.svg"
+                alt="NextChapter Logo"
+                className="h-8 w-auto"
+              />
             </div>
+
+            {/* Center empty (no title) */}
+            <div className="col-span-6" />
 
             {/* Right profile icon */}
             <div className="col-span-3 flex items-center justify-end">
@@ -920,121 +1341,359 @@ const Admin = () => {
             <div className="mt-8 flex flex-col gap-3">
               <button
                 type="button"
-                onClick={handleSignOut}
-                className="inline-flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-widest border-2 border-white dark:border-dark-gray text-white dark:text-dark-gray bg-transparent hover:bg-white/10 dark:hover:bg-dark-gray/10 w-[150px] "
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.nativeEvent?.stopImmediatePropagation?.();
+                  handleSignOut();
+                }}
+                disabled={signOutLoading}
+                className="group inline-flex items-center gap-3 bg-transparent border border-white dark:border-dark-gray text-white dark:text-dark-gray px-6 py-3 text-xs font-medium uppercase tracking-wider transition-all duration-300 hover:border-red-400 dark:hover:border-red-400 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed relative z-0 w-[150px]"
               >
-                <X className="w-4 h-4" />
-                Sign Out
+                <span className="relative z-10 transition-colors duration-300">
+                  {signOutLoading ? 'Signing Out...' : 'Sign Out'}
+                </span>
               </button>
             </div>
           </div>
           <div className="col-span-12 md:col-span-7 border-t-2 border-white dark:border-dark-gray pt-6 md:pt-0 md:border-t-0 md:border-l-2 md:pl-10">
-            <p className="text-sm text-white/60 dark:text-dark-gray/60 uppercase tracking-widest mb-6">
-              Overview of platform metrics, trending genres and catalogue management.
-            </p>
+            {/* Admin Profile Card - aligned with user profile design */}
+            <div className="mb-4 bg-dark-gray dark:bg-white border-2 border-white/30 dark:border-dark-gray/30 p-4">
+              {adminProfileLoading ? (
+                <div className="text-white/70 dark:text-dark-gray/70 text-sm">
+                  Loading admin profile...
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      {/* Profile Picture */}
+                      <div className="relative">
+                        {adminProfilePhotoUrl && !adminImageError ? (
+                          <img
+                            src={adminProfilePhotoUrl}
+                            alt="Admin Profile"
+                            className="w-12 h-12 rounded-full border-2 border-white/40 dark:border-dark-gray/40 object-cover"
+                            onError={() => setAdminImageError(true)}
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full border-2 border-white/40 dark:border-dark-gray/40 flex items-center justify-center">
+                            <User className="w-6 h-6 text-white dark:text-dark-gray" />
+                          </div>
+                        )}
+                        {adminIsEditing && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => adminFileInputRef.current?.click()}
+                              className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white dark:bg-dark-gray border-2 border-white dark:border-dark-gray flex items-center justify-center hover:bg-white/90 dark:hover:bg-dark-gray/90 transition-colors"
+                              title="Change photo"
+                            >
+                              <Camera className="w-3 h-3 text-dark-gray dark:text-white" />
+                            </button>
+                            <input
+                              ref={adminFileInputRef}
+                              type="file"
+                              accept="image/*"
+                              onChange={handleAdminFileSelect}
+                              className="hidden"
+                            />
+                          </>
+                        )}
+                      </div>
+                      <div className="flex-1">
+                        <h2 className="text-xl text-white dark:text-dark-gray font-medium mb-0.5">
+                          {adminIsEditing ? (
+                            <input
+                              type="text"
+                              value={adminUsername}
+                              onChange={(e) => setAdminUsername(e.target.value)}
+                              placeholder="Username"
+                              className="w-full bg-transparent border-0 border-b-2 border-white/40 dark:border-dark-gray/40 px-0 py-0.5 text-white dark:text-dark-gray text-xl font-medium focus:outline-none focus:border-white/60 dark:focus:border-dark-gray/60 transition-colors"
+                            />
+                          ) : (
+                            adminUsername || user?.email?.split('@')[0] || 'Admin'
+                          )}
+                        </h2>
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium uppercase tracking-wider bg-white/5 dark:bg-dark-gray/5 text-white/70 dark:text-dark-gray/70 border-2 border-white/30 dark:border-dark-gray/30">
+                            Admin
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {adminIsEditing ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setAdminIsEditing(false);
+                              setAdminUsername(adminProfile?.username || user?.email?.split('@')[0] || 'Admin');
+                              setAdminDateOfBirth(adminProfile?.date_of_birth || '');
+                              setAdminDescription(adminProfile?.description || '');
+                              setAdminProfilePhotoUrl(adminProfile?.profile_photo_url || '');
+                              setAdminProfilePhotoFile(null);
+                              setAdminImageError(false);
+                            }}
+                            className="px-2 py-1 text-xs text-white/60 dark:text-dark-gray/60 hover:text-white dark:hover:text-dark-gray transition-colors"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleAdminSave}
+                            disabled={adminProfileLoading || adminUploadingPhoto}
+                            className="px-2 py-1 text-xs text-white/70 dark:text-dark-gray/70 hover:text-white dark:hover:text-dark-gray transition-colors disabled:opacity-50"
+                          >
+                            {adminProfileLoading || adminUploadingPhoto ? 'Saving...' : 'Save'}
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setAdminIsEditing(true)}
+                          className="p-2 text-white/50 dark:text-dark-gray/50 hover:text-white dark:hover:text-dark-gray transition-colors"
+                          title="Edit admin profile"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {/* Email Row */}
+                    <div className="flex items-center gap-3 pb-3 border-b-2 border-white/30 dark:border-dark-gray/30">
+                      <Mail className="w-5 h-5 text-white dark:text-dark-gray opacity-60" />
+                      <div className="flex-1">
+                        <p className="text-xs font-medium uppercase tracking-wider text-white/60 dark:text-dark-gray/60 mb-1">
+                          Email
+                        </p>
+                        <p className="text-sm text-white dark:text-dark-gray">
+                          {user?.email}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Date of Birth Row */}
+                    <div className="flex items-center gap-3 pb-3 border-b-2 border-white/30 dark:border-dark-gray/30">
+                      <Calendar className="w-5 h-5 text-black dark:text-black" />
+                      <div className="flex-1">
+                        <p className="text-xs font-medium uppercase tracking-wider text-white/60 dark:text-dark-gray/60 mb-1">
+                          Date of Birth
+                        </p>
+                        {adminIsEditing ? (
+                          <input
+                            type="date"
+                            value={adminDateOfBirth}
+                            onChange={handleAdminDateOfBirthChange}
+                            className="w-full bg-transparent border-0 border-b-2 border-white/40 dark:border-dark-gray/40 px-0 py-0.5 text-black dark:text-dark-gray text-sm focus:outline-none focus:border-black/60 dark:focus:border-dark-gray/60 transition-colors"
+                          />
+                        ) : (
+                          <p className="text-sm text-black dark:text-dark-gray">
+                            {adminDateOfBirth
+                              ? new Date(adminDateOfBirth).toLocaleDateString('en-US', {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                                })
+                              : 'Not set'}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Description Row */}
+                    <div className="pb-1">
+                      <p className="text-xs font-medium uppercase tracking-wider text-white/60 dark:text-dark-gray/60 mb-1">
+                        Description
+                      </p>
+                      {adminIsEditing ? (
+                        <textarea
+                          value={adminDescription}
+                          onChange={(e) => setAdminDescription(e.target.value)}
+                          placeholder="Add a short description..."
+                          className="w-full bg-transparent border-0 border-b-2 border-white/40 dark:border-dark-gray/40 px-0 py-0.5 text-sm text-white dark:text-dark-gray resize-none focus:outline-none focus:border-white/60 dark:focus:border-dark-gray/60 transition-colors"
+                          rows={2}
+                        />
+                      ) : (
+                        <p className="text-sm text-white dark:text-dark-gray">
+                          {adminDescription || 'No description set yet.'}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
 
             {/* Stats Grid */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
               <StatCard 
                 label="Total Books" 
                 value={metrics.totalBooks?.toLocaleString() || '0'} 
                 icon={<BookOpen className="w-5 h-5 text-blue-500" />}
-                change="+5.2%"
-                changeType="increase"
               />
               <StatCard 
                 label="Paid Users" 
                 value={metrics.paidUsers?.toLocaleString() || '1,245'} 
-                icon={<Users className="w-5 h-5 text-green-500" />}
-                change="+12.1%"
-                changeType="increase"
+                icon={<User className="w-5 h-5 text-green-500" />}
               />
               <StatCard 
                 label="Revenue" 
-                value={`$${(metrics.revenue || 0).toLocaleString()}`} 
+                value={formatCurrency(metrics.revenue)} 
                 icon={<DollarSign className="w-5 h-5 text-yellow-500" />}
-                change="+8.7%"
-                changeType="increase"
               />
               <StatCard 
-                label="New Reviews" 
-                value={metrics.newReviews?.toLocaleString() || '42'} 
+                label="New Comments" 
+                value={metrics.newComments?.toLocaleString() || '0'} 
                 icon={<Star className="w-5 h-5 text-purple-500" />}
-                change="+15.3%"
-                changeType="increase"
               />
-              <div className="col-span-2">
-                <StatCard 
-                  label="User Retention" 
-                  value={`${metrics.userRetention || '78'}%`} 
-                  icon={<Users className="w-5 h-5 text-pink-500" />}
-                  change="+2.4%"
-                  changeType="increase"
-                />
-              </div>
+              <StatCard 
+                label="User Retention" 
+                value={`${metrics.userRetention || '78'}%`} 
+                icon={<BarChart2 className="w-5 h-5 text-pink-500" />}
+              />
+              <StatCard 
+                label="All Users" 
+                value={metrics.totalUsers?.toLocaleString() || '0'} 
+                icon={<Users className="w-5 h-5 text-pink-500" />}
+              />
             </div>
 
             {/* === Analytics === */}
-            <div className="mt-10 grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div className="bg-white dark:bg-dark-gray border-2 border-white dark:border-dark-gray p-5">
-                <h2 className="text-2xl font-bold text-dark-gray dark:text-white mb-4 uppercase tracking-widest">
+            {/* Row 1: Full-width dual-line monthly revenue vs subscriptions chart */}
+            <div className="mt-10">
+              <div className="bg-dark-gray dark:bg-white border-2 border-white/30 dark:border-dark-gray/30 p-5">
+                <h2 className="text-2xl font-bold text-white dark:text-dark-gray mb-2 uppercase tracking-widest">
                   Monthly Revenue & Active Subscriptions
                 </h2>
+                <p className="text-xs text-white/70 dark:text-dark-gray/70 mb-4 uppercase tracking-widest">
+                  Shows how revenue and active subscriptions move together across the year.
+                </p>
                 <ResponsiveContainer width="100%" height={260}>
-                  <LineChart data={monthlyData} margin={{ top: 10, right: 30, left: 10, bottom: 10 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" label={{ value: 'Month', position: 'insideBottomRight', offset: -5 }} />
-                    <YAxis yAxisId="left" label={{ value: 'Revenue ($)', angle: -90, position: 'insideLeft' }} />
-                    <YAxis yAxisId="right" orientation="right" label={{ value: 'Subscriptions', angle: 90, position: 'insideRight' }} />
+                  <LineChart data={monthlySeries} margin={{ top: 10, right: 24, left: 0, bottom: 10 }}>
+                    <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
                     <Tooltip />
-                    <Legend />
-                    <Line yAxisId="left" type="monotone" dataKey="revenue" name="Revenue ($)" stroke="#2563EB" strokeWidth={2} dot={false} />
-                    <Line yAxisId="right" type="monotone" dataKey="subscriptions" name="Subscriptions" stroke="#10B981" strokeWidth={2} dot={false} />
+                    <Line
+                      type="monotone"
+                      dataKey="revenue"
+                      name="Revenue (₹)"
+                      stroke="#2563EB"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="subscriptions"
+                      name="Active Subscriptions"
+                      stroke="#10B981"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                    <Legend verticalAlign="bottom" height={24} />
                   </LineChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="bg-white dark:bg-dark-gray border-2 border-white dark:border-dark-gray p-5">
-                <h2 className="text-2xl font-bold text-dark-gray dark:text-white mb-4 uppercase tracking-widest">
-                  Trending Genres
-                </h2>
-                <ResponsiveContainer width="100%" height={260}>
-                  <PieChart>
-                    <Pie data={topGenres} dataKey="count" nameKey="genre" outerRadius={100} label>
-                      {topGenres.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={genreColors[index % genreColors.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
-            {/* === Trending Books & Reported Comments === */}
+            {/* Row 2: Trending Genres (with pie chart) & Trending Books in one row */}
             <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
-              <div className="bg-white dark:bg-dark-gray border-2 border-white dark:border-dark-gray p-4 flex flex-col h-full">
-                <h2 className="text-xl font-bold text-dark-gray dark:text-white mb-4 uppercase tracking-widest">
+              <div className="bg-dark-gray dark:bg-white border-2 border-white/30 dark:border-dark-gray/30 p-4 flex flex-col h-full">
+                {/* Header */}
+                <div className="mb-4">
+                  <h3 className="text-base text-white dark:text-dark-gray font-semibold uppercase tracking-wider mb-1">
+                    Trending Genres
+                  </h3>
+                  <p className="text-xs text-white/60 dark:text-dark-gray/60">
+                    Genres from the most popular books on the platform right now.
+                  </p>
+                </div>
+
+                {/* Content: pie chart + legend list */}
+                {trendingGenresList.length === 0 ? (
+                  <p className="text-xs text-white/60 dark:text-dark-gray/60 flex-1">
+                    No trending genres available yet.
+                  </p>
+                ) : (
+                  <div className="flex flex-col md:flex-row gap-6 flex-1 items-center md:items-start">
+                    {/* Pie Chart */}
+                    <div className="shrink-0 w-full md:w-[40%] flex justify-center items-center py-2">
+                      <ResponsiveContainer width="100%" height={140}>
+                        <PieChart>
+                          <Pie
+                            data={trendingGenresList}
+                            dataKey="percentage"
+                            nameKey="genre"
+                            innerRadius={30}
+                            outerRadius={50}
+                            paddingAngle={2}
+                          >
+                            {trendingGenresList.map((entry, index) => (
+                              <Cell
+                                key={`trending-genre-${entry.genre}`}
+                                fill={genreColors[index % genreColors.length]}
+                              />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+
+                    {/* Legend list */}
+                    <div className="flex-1 w-full md:w-[60%] space-y-2.5">
+                      {trendingGenresList.map((item, index) => {
+                        const color = genreColors[index % genreColors.length];
+                        return (
+                          <div key={item.genre} className="flex items-center gap-3">
+                            <div
+                              className="w-2.5 h-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: color }}
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-white dark:text-dark-gray truncate">
+                                {item.genre}
+                              </div>
+                              <div className="text-xs text-white/60 dark:text-dark-gray/60">
+                                {item.count} {item.count === 1 ? 'book' : 'books'} ({item.percentage}%)
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="bg-dark-gray dark:bg-white border-2 border-white/30 dark:border-dark-gray/30 p-4 flex flex-col h-full">
+                <h2 className="text-xl font-bold text-white dark:text-dark-gray mb-4 uppercase tracking-widest">
                   Trending Books
                 </h2>
                 <div className="grid grid-cols-1 gap-3 mt-1 max-h-52 overflow-y-auto pr-1">
-                  {books.slice(0, 4).map((book) => (
+                  {trendingBooks.slice(0, 10).map((book) => (
                     <div key={book.id} className="p-3 bg-dark-gray dark:bg-white border border-white/20 dark:border-dark-gray/20 text-white dark:text-dark-gray">
                       <h3 className="text-xs uppercase tracking-widest text-white/70 dark:text-dark-gray/70 mb-1 line-clamp-1">{book.title}</h3>
                       <div className="flex items-baseline gap-2">
-                        <span className="text-xl font-extrabold">{Number(book.score || 0).toLocaleString()}</span>
-                        <span className="text-[10px] uppercase tracking-widest text-white/60 dark:text-dark-gray/60">score</span>
+                        <span className="text-xl font-extrabold">{Number(book.trendingScore || 0).toFixed(1)}</span>
+                        <span className="text-[10px] uppercase tracking-widest text-white/60 dark:text-dark-gray/60">trending score</span>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="bg-white dark:bg-dark-gray border-2 border-white dark:border-dark-gray p-4 flex flex-col justify-between h-full">
-                <h2 className="text-xl font-bold text-dark-gray dark:text-white mb-3 uppercase tracking-widest">
+            </div>
+
+            {/* Row 3: Reported Comments */}
+            <div className="mt-8">
+              <div className="bg-dark-gray dark:bg-white border-2 border-white/30 dark:border-dark-gray/30 p-4 flex flex-col justify-between h-full">
+                <h2 className="text-xl font-bold text-black dark:text-black mb-3 uppercase tracking-widest">
                   Reported Comments
                 </h2>
                 <div>
-                  <p className="text-3xl font-extrabold text-dark-gray dark:text-white">
+                  <p className="text-3xl font-extrabold text-dark-gray dark:text-black">
                     {metrics.reportedComments?.toLocaleString() || '0'}
                   </p>
                   {metrics.reportedCommentsChange && (
@@ -1042,7 +1701,7 @@ const Admin = () => {
                       {metrics.reportedCommentsChange}
                     </p>
                   )}
-                  <p className="mt-3 text-[11px] uppercase tracking-widest text-dark-gray/60 dark:text-white/60">
+                  <p className="mt-3 text-[11px] uppercase tracking-widest text-dark-gray/60 dark:text-black/60">
                     Monitor and moderate user-reported comments here.
                   </p>
                 </div>
@@ -1475,30 +2134,35 @@ const Admin = () => {
 
 };
 
-const StatCard = ({ label, value, icon, change, changeType }) => (
-  <div className="bg-dark-gray dark:bg-white border border-white/20 dark:border-dark-gray/20">
-    <div className="p-5">
-      <div className="flex items-start justify-between">
-        <dt className="text-[11px] uppercase tracking-widest text-white/70 dark:text-dark-gray/70">
-          {label}
-        </dt>
-        <div className="shrink-0">
-          <div className="text-yellow-400 dark:text-yellow-500">
-            {icon}
-          </div>
-        </div>
+const StatCard = ({ label, value, icon, change }) => (
+  <div className="bg-dark-gray dark:bg-white border-2 border-white/30 dark:border-dark-gray/30 p-4 flex flex-col">
+    {/* Title and Icon */}
+    <div className="flex items-center justify-between mb-3">
+      <h4 className="text-xs text-white/60 dark:text-dark-gray/60 uppercase tracking-wider font-medium">
+        {label}
+      </h4>
+      <div className="shrink-0">
+        {icon}
       </div>
-      <dd className="mt-3 flex items-center">
-        <div className="text-3xl font-extrabold text-white dark:text-dark-gray">
-          {value}
-        </div>
-        {change && (
-          <span className={`ml-3 text-[10px] uppercase tracking-widest px-2.5 py-1 rounded border ${changeType === 'increase' ? 'border-green-500 text-green-400' : 'border-red-500 text-red-400'}`}>
-            {change}
-          </span>
-        )}
-      </dd>
     </div>
+
+    {/* Value */}
+    <div className="mb-2">
+      <div className="flex items-baseline gap-1">
+        <span className="text-2xl font-semibold text-white dark:text-dark-gray leading-none">
+          {value}
+        </span>
+      </div>
+    </div>
+
+    {/* Tag / change text */}
+    {change && (
+      <div className="flex justify-center mt-2">
+        <span className="px-2.5 py-1 bg-white/5 dark:bg-dark-gray/5 text-white dark:text-dark-gray text-xs rounded text-center">
+          {change}
+        </span>
+      </div>
+    )}
   </div>
 );
 
