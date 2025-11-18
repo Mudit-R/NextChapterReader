@@ -38,7 +38,7 @@ function App() {
         <Route 
           path="/personalization" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute blockAdmin>
               <PersonalizationPage />
             </ProtectedRoute>
           } 
@@ -48,7 +48,7 @@ function App() {
         <Route 
           path="/books" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute blockAdmin>
               <BooksPage />
             </ProtectedRoute>
           } 
@@ -56,7 +56,7 @@ function App() {
         <Route 
           path="/recommended" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute blockAdmin>
               <RecommendedBooksPage />
             </ProtectedRoute>
           } 
@@ -64,7 +64,7 @@ function App() {
         <Route 
           path="/trending" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute blockAdmin>
               <TrendingBooksPage />
             </ProtectedRoute>
           } 
@@ -72,7 +72,7 @@ function App() {
         <Route 
           path="/highest-rated" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute blockAdmin>
               <HighestRatedBooksPage />
             </ProtectedRoute>
           } 
@@ -80,7 +80,7 @@ function App() {
         <Route 
           path="/reading-list" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute blockAdmin>
               <ReadingListPage />
             </ProtectedRoute>
           } 
@@ -88,7 +88,7 @@ function App() {
         <Route 
           path="/already-read" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute blockAdmin>
               <AlreadyReadPage />
             </ProtectedRoute>
           } 
@@ -96,7 +96,7 @@ function App() {
         <Route 
           path="/book/:id" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute blockAdmin>
               <BookDetailPage />
             </ProtectedRoute>
           } 
@@ -104,7 +104,7 @@ function App() {
         <Route 
           path="/subscription" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute blockAdmin>
               <SubscriptionPage />
             </ProtectedRoute>
           } 
@@ -112,7 +112,7 @@ function App() {
         <Route 
           path="/profile" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute blockAdmin>
               <ProfilePage />
             </ProtectedRoute>
           } 
@@ -120,7 +120,7 @@ function App() {
         <Route 
           path="/gallery" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute blockAdmin>
               <Gallery />
             </ProtectedRoute>
           } 
@@ -128,7 +128,7 @@ function App() {
         <Route 
           path="/gallery-local" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute blockAdmin>
               <GalleryLocal />
             </ProtectedRoute>
           } 
@@ -136,7 +136,7 @@ function App() {
         <Route 
           path="/reader" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute blockAdmin>
               <Reader />
             </ProtectedRoute>
           } 
@@ -144,7 +144,7 @@ function App() {
         <Route 
           path="/reader-local" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute blockAdmin>
               <ReaderLocal />
             </ProtectedRoute>
           } 
@@ -152,7 +152,7 @@ function App() {
         <Route 
           path="/admin" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute requireAdmin>
               <Admin />
             </ProtectedRoute>
           } 
