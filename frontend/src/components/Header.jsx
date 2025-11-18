@@ -160,7 +160,8 @@ function FilterDropdown({ location, navigate }) {
     { label: 'Trending', value: 'trending', path: '/trending' },
     { label: 'New Releases', value: 'new', path: '/books?filter=new' },
     { label: 'Highest Rated', value: 'rated', path: '/highest-rated' },
-    { label: 'Recommendations', value: 'recommended', path: '/recommended' }
+    { label: 'Recommendations', value: 'recommended', path: '/recommended' },
+    { label: 'Explore', value: 'explore', path: '/explore' }
   ]
 
   const handleMouseEnter = () => {
@@ -263,6 +264,8 @@ function FilterDropdown({ location, navigate }) {
                   const isActive =
                     option.value === 'recommended'
                       ? location.pathname === '/recommended'
+                      : option.value === 'explore'
+                        ? location.pathname === '/explore'
                       : location.search.includes(option.value)
 
                   return (

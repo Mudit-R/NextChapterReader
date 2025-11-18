@@ -14,6 +14,7 @@ import PersonalizationPage from './pages/PersonalizationPage'
 import RecommendedBooksPage from './pages/RecommendedBooksPage'
 import TrendingBooksPage from './pages/TrendingBooksPage'
 import HighestRatedBooksPage from './pages/HighestRatedBooksPage'
+import ExploreBooksPage from './pages/ExploreBooksPage'
 import Gallery from './components/Gallery'
 import GalleryLocal from './components/GalleryLocal'
 import Reader from './components/Reader'
@@ -74,6 +75,14 @@ function App() {
           element={
             <ProtectedRoute blockAdmin>
               <HighestRatedBooksPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/explore" 
+          element={
+            <ProtectedRoute>
+              <ExploreBooksPage />
             </ProtectedRoute>
           } 
         />
