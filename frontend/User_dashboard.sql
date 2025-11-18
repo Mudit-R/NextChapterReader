@@ -267,3 +267,82 @@ CREATE TABLE public.user_reading_history (
   CONSTRAINT user_reading_history_user_id_fkey FOREIGN KEY (user_id) REFERENCES auth.users(id),
   CONSTRAINT user_reading_history_book_id_fkey FOREIGN KEY (book_id) REFERENCES public.books(id)
 );
+
+
+CREATE OR REPLACE VIEW public.user_dashboard AS
+SELECT
+  u.id AS user_id,
+
+  -- ✅ Books completed this year
+  (
+    SELECT COUNT(*)
+    FROM user_reading_history h
+    WHERE h.user_id = u.id
+      AND h.status = 'completed'
+      AND h.finished_at >= DATE_TRUNC('year', CURRENT_DATE)
+  ) AS books_this_year,
+
+  -- ✅ Pages read this year
+  (
+    SELECT COALESCE(SUM(a.pages), 0)
+    FROM reading_activity a
+    WHERE a.user_id = u.id
+      AND a.day >= DATE_TRUNC('year', CURRENT_DATE)
+  ) AS pages_this_year,
+
+  -- ✅ Books completed this month
+  (
+    SELECT COUNT(*)
+    FROM user_reading_history h
+    WHERE h.user_id = u.id
+      AND h.status = 'completed'
+      AND h.finished_at >= DATE_TRUNC('month', CURRENT_DATE)
+  ) AS books_this_month,
+
+  -- ✅ Pages read this month
+  (
+    SELECT COALESCE(SUM(a.pages), 0)
+    FROM reading_activity a
+    WHERE a.user_id = u.id
+      AND a.day >= DATE_TRUNC('month', CURRENT_DATE)
+  ) AS pages_this_month,
+
+  -- ✅ Reading speed (pages per hour)
+  (
+    SELECT 
+      CASE 
+        WHEN SUM(minutes) = 0 THEN 0
+        ELSE SUM(pages) / (SUM(minutes) / 60.0)
+      END
+    FROM reading_activity a
+    WHERE a.user_id = u.id
+  ) AS reading_speed,
+
+  -- ✅ Average session length (minutes)
+  (
+    SELECT 
+      CASE 
+        WHEN SUM(sessions) = 0 THEN 0
+        ELSE SUM(minutes) / SUM(sessions)
+      END
+    FROM reading_activity a
+    WHERE a.user_id = u.id
+  ) AS average_session_minutes,
+
+  -- ✅ Active days (used for heatmap)
+  (
+    SELECT COUNT(*)
+    FROM reading_activity a
+    WHERE a.user_id = u.id
+  ) AS days_active,
+
+  -- ✅ Simple streak (last 7 days)
+  (
+    SELECT COUNT(*)
+    FROM reading_activity a
+    WHERE a.user_id = u.id
+      AND a.day >= CURRENT_DATE - INTERVAL '7 days'
+  ) AS current_streak
+
+FROM auth.users u;
+
