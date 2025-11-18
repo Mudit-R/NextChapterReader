@@ -391,6 +391,72 @@ async def build_recommendations_payload(user_id: str) -> RecommendationResponse:
         raise HTTPException(status_code=500, detail="An internal server error occurred.")
 
 
+async def build_explore_payload(user_id: str, limit: int = 5) -> RecommendationResponse:
+    """Return curated books the user has not read yet."""
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Missing user_id.")
+
+    try:
+        read_response = (
+            supabase.table("user_books")
+            .select("book_id")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        read_ids = {
+            row.get("book_id")
+            for row in (read_response.data or [])
+            if row.get("book_id") is not None
+        }
+
+        try:
+            books_response = (
+                supabase.table("books")
+                .select("id, title, author, cover_image")
+                .order("number_of_downloads", desc=True, nullsfirst=False)
+                .limit(60)
+                .execute()
+            )
+        except APIError as e:
+            if e.code != "42703":
+                raise
+            # Fallback to created_at if number_of_downloads column does not exist
+            books_response = (
+                supabase.table("books")
+                .select("id, title, author, cover_image")
+                .order("created_at", desc=True, nullsfirst=False)
+                .limit(60)
+                .execute()
+            )
+
+        candidate_books: List[Dict[str, Any]] = []
+        for book in books_response.data or []:
+            if book.get("id") in read_ids:
+                continue
+            candidate_books.append(book)
+            if len(candidate_books) >= limit:
+                break
+
+        if not candidate_books:
+            raise HTTPException(status_code=404, detail="No explore titles available. Try again later.")
+
+        formatted = format_books(candidate_books)
+        if not formatted:
+            raise HTTPException(status_code=404, detail="No explore titles available. Try again later.")
+
+        return RecommendationResponse(
+            user_id=user_id,
+            books=[RecommendedBook(**book) for book in formatted],
+            strategy="explore",
+            is_fallback=False,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error building explore payload: {e}")
+        raise HTTPException(status_code=500, detail="Unable to fetch explore recommendations.")
+
+
 # --- 6. Main Recommendation Endpoints ---
 
 @app.get("/recommendations/{user_id}", response_model=RecommendationResponse)
@@ -410,6 +476,17 @@ async def post_smart_suggestions(payload: RecommendationRequest):
     if not payload.user_id:
         raise HTTPException(status_code=400, detail="Missing user_id in request body.")
     return await build_recommendations_payload(payload.user_id)
+
+@app.get("/explore/{user_id}", response_model=RecommendationResponse)
+async def get_explore(user_id: str):
+    return await build_explore_payload(user_id)
+
+@app.post("/explore", response_model=RecommendationResponse)
+async def post_explore(payload: RecommendationRequest):
+    if not payload.user_id:
+        raise HTTPException(status_code=400, detail="Missing user_id in request body.")
+    return await build_explore_payload(payload.user_id)
+
 
 # --- 7. Run the App ---
 if __name__ == "__main__":
