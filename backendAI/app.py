@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from groq import Groq
 from dotenv import load_dotenv
 
-# Load env
+# Load environment variables
 load_dotenv()
 
 API_KEY = os.getenv("GROQ_API_KEY")
@@ -16,7 +16,7 @@ client = Groq(api_key=API_KEY)
 
 app = FastAPI()
 
-# CORS
+# CORS settings
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -37,7 +37,6 @@ class ModerationResult(BaseModel):
 @app.post("/api/moderate", response_model=ModerationResult)
 async def moderate_comment(comment: CommentRequest):
     try:
-        # Strong Moderation Prompt
         system_prompt = """
 You are a STRICT content moderation engine.
 
@@ -59,10 +58,10 @@ Reject ANY content with:
 - illegal activity
 - profanity, rude or abusive language
 - harmful opinions that attack people
-        """
+"""
 
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",   # Best Groq model for moderation
+            model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": comment.text},
@@ -75,7 +74,6 @@ Reject ANY content with:
 
         # APPROVED
         if result == "APPROVED":
-            print("Comment approved")
             return ModerationResult(
                 is_appropriate=True,
                 message="Comment allowed",
@@ -84,7 +82,6 @@ Reject ANY content with:
 
         # REJECTED
         if result.startswith("REJECTED:"):
-            print("Comment rejected")
             reasons = result.split(":", 1)[1].strip().split(",")
             reasons = [r.strip() for r in reasons if r.strip()]
 
@@ -94,7 +91,7 @@ Reject ANY content with:
                 reasons=reasons
             )
 
-        # Unexpected model output fallback
+        # Unknown model output
         return ModerationResult(
             is_appropriate=False,
             message="Comment rejected (unexpected model output)",
@@ -105,6 +102,7 @@ Reject ANY content with:
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# Local development only
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
