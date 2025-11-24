@@ -231,6 +231,7 @@ function SignUpPage() {
                     <input
                       type="email"
                       id="email"
+                      data-testid="signup-email-input"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
@@ -251,6 +252,7 @@ function SignUpPage() {
                       <input
                         type={showPassword ? "text" : "password"}
                         id="password"
+                        data-testid="signup-password-input"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         required
@@ -259,6 +261,7 @@ function SignUpPage() {
                       />
                       <button
                         type="button"
+                        data-testid="signup-password-toggle"
                         onClick={() => setShowPassword(!showPassword)}
                         className="absolute right-4 top-1/2 -translate-y-1/2 text-white/60 dark:text-dark-gray/60 hover:text-white dark:hover:text-dark-gray transition-colors"
                         aria-label={showPassword ? "Hide password" : "Show password"}
@@ -284,6 +287,7 @@ function SignUpPage() {
                       <input
                         type={showConfirmPassword ? "text" : "password"}
                         id="confirmPassword"
+                        data-testid="signup-confirm-password-input"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
                         required
@@ -292,6 +296,7 @@ function SignUpPage() {
                       />
                       <button
                         type="button"
+                        data-testid="signup-confirm-password-toggle"
                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                         className="absolute right-4 top-1/2 -translate-y-1/2 text-white/60 dark:text-dark-gray/60 hover:text-white dark:hover:text-dark-gray transition-colors"
                         aria-label={showConfirmPassword ? "Hide password" : "Show password"}
@@ -309,6 +314,7 @@ function SignUpPage() {
                   <button
                     type="submit"
                     disabled={loading}
+                    data-testid="sign-up-button"
                     className="group w-full inline-flex items-center justify-center gap-3 bg-white dark:bg-dark-gray text-dark-gray dark:text-white px-8 py-4 text-sm font-medium uppercase tracking-widest border-2 border-white dark:border-dark-gray transition-all duration-300 hover:bg-dark-gray dark:hover:bg-white hover:text-white dark:hover:text-dark-gray overflow-hidden relative disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <span className="relative z-10 transition-colors duration-300">
