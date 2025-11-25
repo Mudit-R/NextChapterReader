@@ -16,6 +16,11 @@ import TrendingBooksPage from './pages/TrendingBooksPage'
 import HighestRatedBooksPage from './pages/HighestRatedBooksPage'
 import ExploreBooksPage from './pages/ExploreBooksPage'
 import OAuthCallbackPage from './pages/OAuthCallbackPage'
+import PrivacyPage from './pages/PrivacyPage'
+import TermsPage from './pages/TermsPage'
+import RefundsPage from './pages/RefundsPage'
+import ContactPage from './pages/ContactPage'
+import ShippingPage from './pages/ShippingPage'
 import Gallery from './components/Gallery'
 import GalleryLocal from './components/GalleryLocal'
 import Reader from './components/Reader'
@@ -35,6 +40,13 @@ function App() {
         <Route path="/sign-up" element={<SignUpPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/reset-password" element={<ResetPasswordPage />} />
+        
+        {/* Policy pages */}
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/refunds" element={<RefundsPage />} />
+        <Route path="/contact" element={<ContactPage />} />
+        <Route path="/shipping" element={<ShippingPage />} />
         
         {/* OAuth callback route - handles OAuth redirects for both old and new users */}
         <Route path="/auth/callback" element={<OAuthCallbackPage />} />

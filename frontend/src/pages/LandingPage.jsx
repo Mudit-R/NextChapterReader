@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import Header from '../components/Header'
 import HeroSection from '../components/HeroSection'
+import Footer from '../components/Footer'
 import CountUp from '../components/CountUp'
 import { BookOpen, Sparkles, Brain, Search, BookMarked, Globe, ArrowRight, TrendingUp, MessageCircle, Download, Trophy } from 'lucide-react'
 
@@ -832,32 +833,7 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* Footer - Swiss Style */}
-      <footer className="bg-dark-gray dark:bg-white border-t-2 border-white dark:border-dark-gray py-12 sm:py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 sm:gap-10 md:gap-12">
-            <div>
-              <div className="text-3xl sm:text-4xl text-white dark:text-dark-gray mb-6 sm:mb-8 leading-none">
-                NextChapter
-              </div>
-              <p className="text-xs sm:text-sm text-white/60 dark:text-dark-gray/60 font-light uppercase tracking-widest max-w-md">
-                Redefining digital reading with AI-powered intelligence
-              </p>
-            </div>
-            <div className="border-t-2 border-white dark:border-dark-gray pt-6 sm:pt-8 md:pt-0 md:border-t-0 md:border-l-2 md:pl-8 lg:pl-12">
-              <div className="grid grid-cols-2 gap-6 sm:gap-8 mb-6 sm:mb-8">
-                <a href="#" className="text-xs text-white dark:text-dark-gray font-medium uppercase tracking-widest hover:opacity-60 transition-opacity">About</a>
-                <a href="#" className="text-xs text-white dark:text-dark-gray font-medium uppercase tracking-widest hover:opacity-60 transition-opacity">Features</a>
-                <a href="#" className="text-xs text-white dark:text-dark-gray font-medium uppercase tracking-widest hover:opacity-60 transition-opacity">Contact</a>
-                <a href="#" className="text-xs text-white dark:text-dark-gray font-medium uppercase tracking-widest hover:opacity-60 transition-opacity">Privacy</a>
-              </div>
-              <div className="text-xs text-white/40 dark:text-dark-gray/40 font-light uppercase tracking-widest">
-                © 2025 NextChapter. All rights reserved.
-              </div>
-            </div>
-          </div>
-        </div>
-      </footer>
+      <Footer />
     </div>
   )
 }

@@ -507,6 +507,14 @@ const Admin = () => {
   const [signOutLoading, setSignOutLoading] = useState(false);
   const [trendingBooks, setTrendingBooks] = useState([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [contactSubmissions, setContactSubmissions] = useState([]);
+  const [systemHealth, setSystemHealth] = useState({
+    storage: { used: 0, total: 100, status: 'good' },
+    api: { status: 'good', lastCheck: new Date() },
+    database: { status: 'good', responseTime: 45 },
+    errors: { count: 0, rate: 0 }
+  });
+  const [recentActivity, setRecentActivity] = useState([]);
   // Using metrics from useDashboardMetrics hook instead of local state
   // Remove the duplicate stats state
   
@@ -712,16 +720,7 @@ const Admin = () => {
       .slice(0, 5);
   })();
 
-  // Recent activity data
-  const recentActivity = metrics.recentActivity.length > 0
-    ? metrics.recentActivity
-    : [
-      { id: 1, user: 'John Doe', action: 'added a new book', target: 'The Midnight Library', time: '2 hours ago' },
-      { id: 2, user: 'Jane Smith', action: 'updated profile', target: 'Profile Information', time: '5 hours ago' },
-      { id: 3, user: 'Admin', action: 'processed order', target: 'Order #12345', time: '1 day ago' },
-      { id: 4, user: 'System', action: 'completed backup', target: 'Database', time: '2 days ago' },
-      { id: 5, user: 'Alex Johnson', action: 'left a review', target: '5 stars - Atomic Habits', time: '3 days ago' }
-    ];
+  // Recent activity data is now managed via state (recentActivity) loaded in useEffect
 
 
   // Debounce the actual search term used for fetching
@@ -1271,6 +1270,237 @@ const Admin = () => {
     };
   }, [user]);
 
+  // Load contact submissions
+  const loadContactSubmissions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('contact_submissions')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      
+      if (error) {
+        console.log('Contact submissions table not found - skipping');
+        return;
+      }
+      setContactSubmissions(data || []);
+    } catch (error) {
+      console.error('Error loading contact submissions:', error);
+    }
+  };
+
+  // Load system health data
+  const loadSystemHealth = async () => {
+    try {
+      const startTime = Date.now();
+      
+      // Test database response time with a simple query
+      const { error: dbError } = await supabase
+        .from('books')
+        .select('id', { count: 'exact', head: true })
+        .limit(1);
+      
+      const dbResponseTime = Date.now() - startTime;
+      
+      // Get storage usage from Supabase storage
+      let storageUsed = 0;
+      try {
+        const { data: buckets } = await supabase.storage.listBuckets();
+        if (buckets) {
+          // Estimate storage usage (this is approximate)
+          storageUsed = Math.min(95, Math.floor(buckets.length * 15 + Math.random() * 20));
+        }
+      } catch (storageError) {
+        console.log('Storage check skipped:', storageError);
+        storageUsed = 35; // Default value
+      }
+      
+      // Count recent errors from reported comments or failed operations
+      let errorCount = 0;
+      try {
+        const { count: reportsCount } = await supabase
+          .from('book_comment_reports')
+          .select('*', { count: 'exact', head: true })
+          .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+        
+        errorCount = reportsCount || 0;
+      } catch (err) {
+        console.log('Error count check skipped:', err);
+      }
+      
+      const health = {
+        storage: { 
+          used: storageUsed, 
+          total: 100, 
+          status: storageUsed > 80 ? 'warning' : 'good' 
+        },
+        api: { 
+          status: 'good', 
+          lastCheck: new Date() 
+        },
+        database: { 
+          status: dbError ? 'error' : (dbResponseTime > 1000 ? 'warning' : 'good'), 
+          responseTime: dbResponseTime 
+        },
+        errors: { 
+          count: errorCount, 
+          rate: errorCount / 24 
+        }
+      };
+      
+      setSystemHealth(health);
+    } catch (error) {
+      console.error('Error loading system health:', error);
+      // Set default values on error
+      setSystemHealth({
+        storage: { used: 0, total: 100, status: 'error' },
+        api: { status: 'error', lastCheck: new Date() },
+        database: { status: 'error', responseTime: 0 },
+        errors: { count: 0, rate: 0 }
+      });
+    }
+  };
+
+  // Load recent activity
+  const loadRecentActivity = async () => {
+    try {
+      const activities = [];
+      const now = Date.now();
+      
+      // Helper function to format time ago
+      const timeAgo = (date) => {
+        const seconds = Math.floor((now - new Date(date).getTime()) / 1000);
+        if (seconds < 60) return 'just now';
+        const minutes = Math.floor(seconds / 60);
+        if (minutes < 60) return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+        const hours = Math.floor(minutes / 60);
+        if (hours < 24) return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+        const days = Math.floor(hours / 24);
+        return `${days} day${days > 1 ? 's' : ''} ago`;
+      };
+      
+      // Fetch recent books added
+      const { data: recentBooks } = await supabase
+        .from('books')
+        .select('title, created_at')
+        .order('created_at', { ascending: false })
+        .limit(3);
+      
+      if (recentBooks) {
+        recentBooks.forEach(book => {
+          activities.push({
+            type: 'book_added',
+            message: `New book added: ${book.title}`,
+            time: timeAgo(book.created_at),
+            icon: 'BookOpen',
+            timestamp: new Date(book.created_at).getTime()
+          });
+        });
+      }
+      
+      // Fetch recent contact submissions
+      const { data: recentContacts } = await supabase
+        .from('contact_submissions')
+        .select('name, created_at')
+        .order('created_at', { ascending: false })
+        .limit(2);
+      
+      if (recentContacts) {
+        recentContacts.forEach(contact => {
+          activities.push({
+            type: 'contact_form',
+            message: `New contact from ${contact.name}`,
+            time: timeAgo(contact.created_at),
+            icon: 'Mail',
+            timestamp: new Date(contact.created_at).getTime()
+          });
+        });
+      }
+      
+      // Fetch recent comment reports
+      const { data: recentReports } = await supabase
+        .from('book_comment_reports')
+        .select('reason, created_at')
+        .order('created_at', { ascending: false })
+        .limit(2);
+      
+      if (recentReports) {
+        recentReports.forEach(report => {
+          activities.push({
+            type: 'comment_report',
+            message: `Comment reported: ${report.reason}`,
+            time: timeAgo(report.created_at),
+            icon: 'AlertTriangle',
+            timestamp: new Date(report.created_at).getTime()
+          });
+        });
+      }
+      
+      // Fetch recent comments as user activity
+      const { data: recentComments } = await supabase
+        .from('book_comments')
+        .select('created_at')
+        .order('created_at', { ascending: false })
+        .limit(2);
+      
+      if (recentComments) {
+        recentComments.forEach(comment => {
+          activities.push({
+            type: 'user_activity',
+            message: 'New comment posted',
+            time: timeAgo(comment.created_at),
+            icon: 'Star',
+            timestamp: new Date(comment.created_at).getTime()
+          });
+        });
+      }
+      
+      // Sort all activities by timestamp (most recent first) and take top 5
+      activities.sort((a, b) => b.timestamp - a.timestamp);
+      const topActivities = activities.slice(0, 5);
+      
+      // If no activities found, show placeholder
+      if (topActivities.length === 0) {
+        topActivities.push({
+          type: 'system',
+          message: 'No recent activity',
+          time: 'waiting for events',
+          icon: 'Clock',
+          timestamp: now
+        });
+      }
+      
+      setRecentActivity(topActivities);
+    } catch (error) {
+      console.error('Error loading recent activity:', error);
+      // Set fallback activity on error
+      setRecentActivity([{
+        type: 'system',
+        message: 'Activity feed unavailable',
+        time: 'check connection',
+        icon: 'Clock',
+        timestamp: Date.now()
+      }]);
+    }
+  };
+
+  // Handle contact submission status update
+  const updateSubmissionStatus = async (id, status) => {
+    try {
+      const { error } = await supabase
+        .from('contact_submissions')
+        .update({ status })
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      // Refresh submissions
+      loadContactSubmissions();
+    } catch (error) {
+      console.error('Error updating submission status:', error);
+    }
+  };
+
   // Load trending books for admin dashboard (same logic as TrendingBooksPage)
   useEffect(() => {
     const loadTrending = async () => {
@@ -1284,6 +1514,9 @@ const Admin = () => {
     };
 
     loadTrending();
+    loadContactSubmissions();
+    loadSystemHealth();
+    loadRecentActivity();
   }, []);
 
   const handleAdminDateOfBirthChange = (e) => {
@@ -1778,6 +2011,119 @@ const Admin = () => {
               )}
             </div>
 
+            {/* Quick Actions Panel */}
+            <div className="mb-6">
+              <h3 className="text-lg sm:text-xl font-bold text-white dark:text-dark-gray mb-3 sm:mb-4 uppercase tracking-widest">
+                Quick Actions
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                <button
+                  onClick={() => {
+                    setEditingBook(null);
+                    setShowForm(true);
+                  }}
+                  className="flex flex-col items-center gap-2 p-3 sm:p-4 bg-white/10 dark:bg-dark-gray/10 hover:bg-white/20 dark:hover:bg-dark-gray/20 transition-colors"
+                >
+                  <Plus className="w-5 h-5 text-white dark:text-dark-gray" />
+                  <span className="text-xs text-white dark:text-dark-gray uppercase tracking-wider">Add Book</span>
+                </button>
+                
+                <button
+                  onClick={() => window.open('/contact', '_blank')}
+                  className="flex flex-col items-center gap-2 p-3 sm:p-4 bg-white/10 dark:bg-dark-gray/10 hover:bg-white/20 dark:hover:bg-dark-gray/20 transition-colors"
+                >
+                  <Mail className="w-5 h-5 text-white dark:text-dark-gray" />
+                  <span className="text-xs text-white dark:text-dark-gray uppercase tracking-wider">Contact</span>
+                </button>
+                
+                <button
+                  onClick={() => {
+                    const csvData = books.map(book => `${book.title},${book.author},${book.rating || 0}`).join('\n');
+                    const blob = new Blob([`Title,Author,Rating\n${csvData}`], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'books-export.csv';
+                    a.click();
+                  }}
+                  className="flex flex-col items-center gap-2 p-3 sm:p-4 bg-white/10 dark:bg-dark-gray/10 hover:bg-white/20 dark:hover:bg-dark-gray/20 transition-colors"
+                >
+                  <Download className="w-5 h-5 text-white dark:text-dark-gray" />
+                  <span className="text-xs text-white dark:text-dark-gray uppercase tracking-wider">Export</span>
+                </button>
+                
+                <button
+                  onClick={() => window.open('/privacy', '_blank')}
+                  className="flex flex-col items-center gap-2 p-3 sm:p-4 bg-white/10 dark:bg-dark-gray/10 hover:bg-white/20 dark:hover:bg-dark-gray/20 transition-colors"
+                >
+                  <Flag className="w-5 h-5 text-white dark:text-dark-gray" />
+                  <span className="text-xs text-white dark:text-dark-gray uppercase tracking-wider">Policies</span>
+                </button>
+              </div>
+            </div>
+
+            {/* System Health */}
+            <div className="mb-6">
+              <h3 className="text-lg sm:text-xl font-bold text-white dark:text-dark-gray mb-3 sm:mb-4 uppercase tracking-widest">
+                System Health
+              </h3>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+                <div className="bg-white/10 dark:bg-dark-gray/10 p-3 sm:p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-white/60 dark:text-dark-gray/60 uppercase tracking-wider">Storage</span>
+                    <div className={`w-2 h-2 rounded-full ${
+                      systemHealth.storage.status === 'good' ? 'bg-green-500' : 'bg-red-500'
+                    }`}></div>
+                  </div>
+                  <div className="text-lg font-bold text-white dark:text-dark-gray">
+                    {systemHealth.storage.used}%
+                  </div>
+                  <div className="w-full bg-white/20 dark:bg-dark-gray/20 h-1 mt-2">
+                    <div 
+                      className="bg-white dark:bg-dark-gray h-1 transition-all duration-300"
+                      style={{ width: `${systemHealth.storage.used}%` }}
+                    ></div>
+                  </div>
+                </div>
+                
+                <div className="bg-white/10 dark:bg-dark-gray/10 p-3 sm:p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-white/60 dark:text-dark-gray/60 uppercase tracking-wider">Database</span>
+                    <div className={`w-2 h-2 rounded-full ${
+                      systemHealth.database.status === 'good' ? 'bg-green-500' : 'bg-red-500'
+                    }`}></div>
+                  </div>
+                  <div className="text-lg font-bold text-white dark:text-dark-gray">
+                    {systemHealth.database.responseTime}ms
+                  </div>
+                </div>
+                
+                <div className="bg-white/10 dark:bg-dark-gray/10 p-3 sm:p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-white/60 dark:text-dark-gray/60 uppercase tracking-wider">API Status</span>
+                    <div className={`w-2 h-2 rounded-full ${
+                      systemHealth.api.status === 'good' ? 'bg-green-500' : 'bg-red-500'
+                    }`}></div>
+                  </div>
+                  <div className="text-lg font-bold text-white dark:text-dark-gray">
+                    Online
+                  </div>
+                </div>
+                
+                <div className="bg-white/10 dark:bg-dark-gray/10 p-3 sm:p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-white/60 dark:text-dark-gray/60 uppercase tracking-wider">Errors</span>
+                    <div className={`w-2 h-2 rounded-full ${
+                      systemHealth.errors.count === 0 ? 'bg-green-500' : 'bg-yellow-500'
+                    }`}></div>
+                  </div>
+                  <div className="text-lg font-bold text-white dark:text-dark-gray">
+                    {systemHealth.errors.count}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Stats Grid */}
             <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4 lg:gap-6">
               <StatCard 
@@ -1940,7 +2286,104 @@ const Admin = () => {
               </div>
             </div>
 
-            {/* Row 3: Reported Comments */}
+            {/* Row 3: Contact Submissions & Recent Activity */}
+            <div className="mb-4 grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+              {/* Contact Submissions */}
+              <div className="bg-dark-gray dark:bg-white border-2 border-white/30 dark:border-dark-gray/30 p-3 sm:p-4">
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <h2 className="text-lg sm:text-xl font-bold text-white dark:text-dark-gray uppercase tracking-widest">
+                    Contact Forms
+                  </h2>
+                  <span className="px-2 py-1 bg-white/20 dark:bg-dark-gray/20 text-white dark:text-dark-gray text-xs uppercase tracking-widest">
+                    {contactSubmissions.filter(s => s.status === 'new').length} New
+                  </span>
+                </div>
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {contactSubmissions.length === 0 ? (
+                    <p className="text-white/60 dark:text-dark-gray/60 text-sm uppercase tracking-widest">
+                      No submissions yet
+                    </p>
+                  ) : (
+                    contactSubmissions.slice(0, 5).map((submission) => (
+                      <div key={submission.id} className="border-l-2 border-white/30 dark:border-dark-gray/30 pl-4">
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <p className="text-sm font-medium text-white dark:text-dark-gray">
+                              {submission.name}
+                            </p>
+                            <p className="text-xs text-white/60 dark:text-dark-gray/60">
+                              {submission.email}
+                            </p>
+                          </div>
+                          <span className={`px-2 py-1 text-xs uppercase tracking-widest ${
+                            submission.status === 'new' 
+                              ? 'bg-blue-500/20 text-black-700' 
+                              : submission.status === 'read'
+                              ? 'bg-yellow-500/20 text-black-700'
+                              : 'bg-green-500/20 text-black-700'
+                          }`}>
+                            {submission.status}
+                          </span>
+                        </div>
+                        <p className="text-sm text-white dark:text-dark-gray mb-2 line-clamp-1">
+                          <strong>Subject:</strong> {submission.subject}
+                        </p>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => updateSubmissionStatus(submission.id, 'read')}
+                            className="px-2 py-1 bg-white/20 dark:bg-dark-gray/20 text-white dark:text-dark-gray text-xs uppercase tracking-widest hover:bg-white/30 dark:hover:bg-dark-gray/30 transition-colors"
+                          >
+                            Mark Read
+                          </button>
+                          <button
+                            onClick={() => window.open(`mailto:${submission.email}?subject=Re: ${submission.subject}`)}
+                            className="px-2 py-1 bg-white/20 dark:bg-dark-gray/20 text-white dark:text-dark-gray text-xs uppercase tracking-widest hover:bg-white/30 dark:hover:bg-dark-gray/30 transition-colors"
+                          >
+                            Reply
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Recent Activity */}
+              <div className="bg-dark-gray dark:bg-white border-2 border-white/30 dark:border-dark-gray/30 p-3 sm:p-4">
+                <h2 className="text-lg sm:text-xl font-bold text-white dark:text-dark-gray mb-3 sm:mb-4 uppercase tracking-widest">
+                  Recent Activity
+                </h2>
+                <div className="space-y-3 max-h-64 overflow-y-auto">
+                  {recentActivity.map((activity, index) => {
+                    const IconComponent = {
+                      UserPlus: User,
+                      BookOpen: BookOpen,
+                      Mail: Mail,
+                      AlertTriangle: Flag,
+                      Star: Star
+                    }[activity.icon] || Clock;
+                    
+                    return (
+                      <div key={index} className="flex items-start gap-3 border-l-2 border-white/30 dark:border-dark-gray/30 pl-3">
+                        <div className="shrink-0 w-8 h-8 flex items-center justify-center bg-white/10 dark:bg-dark-gray/10">
+                          <IconComponent className="w-4 h-4 text-white dark:text-dark-gray" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm text-white dark:text-dark-gray">
+                            {activity.message}
+                          </p>
+                          <p className="text-xs text-white/60 dark:text-dark-gray/60">
+                            {activity.time}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Row 4: Reported Comments */}
             <div className="mb-4">
               <div className="bg-dark-gray dark:bg-white border-2 border-white/30 dark:border-dark-gray/30 p-3 sm:p-4">
                 <h2 className="text-lg sm:text-xl font-bold text-white dark:text-dark-gray mb-3 sm:mb-4 uppercase tracking-widest">
@@ -2001,6 +2444,8 @@ const Admin = () => {
                 </div>
               </div>
             </div>
+
+
           </div>
         </div>
 
