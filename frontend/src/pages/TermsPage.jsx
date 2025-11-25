@@ -239,7 +239,7 @@ function TermsPage() {
                   Questions about these Terms? Contact us:
                 </p>
                 <ul className="space-y-2 text-sm">
-                  <li><strong>Email:</strong> legal@nextchapter.com</li>
+                  <li><strong>Email:</strong> 202301124@dau.ac.in</li>
                   <li><strong>Website:</strong> <Link to="/contact" className="underline hover:text-white dark:hover:text-dark-gray">Contact Form</Link></li>
                 </ul>
               </div>

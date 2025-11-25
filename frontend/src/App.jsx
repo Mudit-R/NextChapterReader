@@ -34,19 +34,84 @@ function App() {
     <>
       <OAuthCallbackHandler />
       <Routes>
-        {/* Public routes */}
+        {/* Public routes - Landing page accessible to everyone including admin */}
         <Route path="/" element={<LandingPage />} />
-        <Route path="/sign-in" element={<SignInPage />} />
-        <Route path="/sign-up" element={<SignUpPage />} />
-        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-        <Route path="/reset-password" element={<ResetPasswordPage />} />
         
-        {/* Policy pages */}
-        <Route path="/privacy" element={<PrivacyPage />} />
-        <Route path="/terms" element={<TermsPage />} />
-        <Route path="/refunds" element={<RefundsPage />} />
-        <Route path="/contact" element={<ContactPage />} />
-        <Route path="/shipping" element={<ShippingPage />} />
+        {/* Auth routes - Block admin access */}
+        <Route 
+          path="/sign-in" 
+          element={
+            <ProtectedRoute blockAdmin>
+              <SignInPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/sign-up" 
+          element={
+            <ProtectedRoute blockAdmin>
+              <SignUpPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/forgot-password" 
+          element={
+            <ProtectedRoute blockAdmin>
+              <ForgotPasswordPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/reset-password" 
+          element={
+            <ProtectedRoute blockAdmin>
+              <ResetPasswordPage />
+            </ProtectedRoute>
+          } 
+        />
+        
+        {/* Policy pages - Block admin access */}
+        <Route 
+          path="/privacy" 
+          element={
+            <ProtectedRoute blockAdmin>
+              <PrivacyPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/terms" 
+          element={
+            <ProtectedRoute blockAdmin>
+              <TermsPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/refunds" 
+          element={
+            <ProtectedRoute blockAdmin>
+              <RefundsPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/contact" 
+          element={
+            <ProtectedRoute blockAdmin>
+              <ContactPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/shipping" 
+          element={
+            <ProtectedRoute blockAdmin>
+              <ShippingPage />
+            </ProtectedRoute>
+          } 
+        />
         
         {/* OAuth callback route - handles OAuth redirects for both old and new users */}
         <Route path="/auth/callback" element={<OAuthCallbackPage />} />
@@ -97,7 +162,7 @@ function App() {
         <Route 
           path="/explore" 
           element={
-            <ProtectedRoute>
+            <ProtectedRoute blockAdmin>
               <ExploreBooksPage />
             </ProtectedRoute>
           } 

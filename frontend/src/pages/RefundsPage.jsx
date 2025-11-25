@@ -46,7 +46,7 @@ function RefundsPage() {
                   </p>
                   <ul className="list-disc list-inside space-y-2 text-sm">
                     <li>Your account settings page</li>
-                    <li>Contacting our support team at support@nextchapter.com</li>
+                    <li>Contacting our support team at 202301124@dau.ac.in</li>
                   </ul>
                 </div>
                 <div>
@@ -124,7 +124,7 @@ function RefundsPage() {
                 </ul>
                 <div className="mt-4 p-4 bg-white/5 dark:bg-dark-gray/5 border-l-2 border-white dark:border-dark-gray">
                   <p className="text-sm"><strong>Contact:</strong></p>
-                  <p className="text-sm mt-2">Email: refunds@nextchapter.com</p>
+                  <p className="text-sm mt-2">Email: 202301124@dau.ac.in</p>
                   <p className="text-sm">Subject: Refund Request - [Your Email]</p>
                 </div>
               </div>
@@ -200,7 +200,7 @@ function RefundsPage() {
                   If you notice an incorrect charge:
                 </p>
                 <ul className="list-disc list-inside space-y-2 text-sm">
-                  <li>Contact us immediately at billing@nextchapter.com</li>
+                  <li>Contact us immediately at 202301124@dau.ac.in</li>
                   <li>Provide transaction details and explanation</li>
                   <li>We will investigate and respond within 48 hours</li>
                   <li>Billing errors will be corrected promptly</li>
@@ -230,8 +230,7 @@ function RefundsPage() {
                   For questions about cancellations or refunds:
                 </p>
                 <ul className="space-y-2 text-sm">
-                  <li><strong>Email:</strong> support@nextchapter.com</li>
-                  <li><strong>Refunds:</strong> refunds@nextchapter.com</li>
+                  <li><strong>Email:</strong> 202301124@dau.ac.in</li>
                   <li><strong>Website:</strong> <Link to="/contact" className="underline hover:text-white dark:hover:text-dark-gray">Contact Form</Link></li>
                 </ul>
               </div>

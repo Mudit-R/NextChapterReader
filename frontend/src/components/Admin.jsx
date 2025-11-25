@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { getUserProfile } from "../lib/personalizationUtils";
@@ -37,7 +37,6 @@ import {
   Calendar,
   Camera,
   Menu,
-  Home,
   LogOut
 } from "lucide-react";
 import {
@@ -1206,18 +1205,25 @@ const Admin = () => {
     setShowForm(false);
   };
 
-  // Navigation controls: admin can only leave to landing page
-  const handleBackToLanding = useCallback(() => {
-    navigate('/');
-  }, [navigate]);
+
 
   const handleSignOut = async () => {
     setSignOutLoading(true);
-    const { error } = await signOut();
-    if (error) {
-      console.error('Sign out error:', error);
+    try {
+      const { error } = await signOut();
+      if (error) {
+        console.error('Sign out error:', error);
+        toast.error('Failed to sign out. Please try again.');
+        setSignOutLoading(false);
+      } else {
+        // Sign out successful - AuthContext will handle redirect
+        console.log('Sign out successful');
+      }
+    } catch (err) {
+      console.error('Sign out exception:', err);
+      toast.error('An error occurred during sign out.');
+      setSignOutLoading(false);
     }
-    setSignOutLoading(false);
   };
 
   useEffect(() => {
@@ -1367,6 +1373,9 @@ const Admin = () => {
       const activities = [];
       const now = Date.now();
       
+      // Calculate 7 days ago timestamp
+      const sevenDaysAgo = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+      
       // Helper function to format time ago
       const timeAgo = (date) => {
         const seconds = Math.floor((now - new Date(date).getTime()) / 1000);
@@ -1379,10 +1388,11 @@ const Admin = () => {
         return `${days} day${days > 1 ? 's' : ''} ago`;
       };
       
-      // Fetch recent books added
+      // Fetch recent books added (last 7 days)
       const { data: recentBooks } = await supabase
         .from('books')
         .select('title, created_at')
+        .gte('created_at', sevenDaysAgo)
         .order('created_at', { ascending: false })
         .limit(3);
       
@@ -1398,10 +1408,11 @@ const Admin = () => {
         });
       }
       
-      // Fetch recent contact submissions
+      // Fetch recent contact submissions (last 7 days)
       const { data: recentContacts } = await supabase
         .from('contact_submissions')
         .select('name, created_at')
+        .gte('created_at', sevenDaysAgo)
         .order('created_at', { ascending: false })
         .limit(2);
       
@@ -1417,10 +1428,11 @@ const Admin = () => {
         });
       }
       
-      // Fetch recent comment reports
+      // Fetch recent comment reports (last 7 days)
       const { data: recentReports } = await supabase
         .from('book_comment_reports')
         .select('reason, created_at')
+        .gte('created_at', sevenDaysAgo)
         .order('created_at', { ascending: false })
         .limit(2);
       
@@ -1436,10 +1448,11 @@ const Admin = () => {
         });
       }
       
-      // Fetch recent comments as user activity
+      // Fetch recent comments as user activity (last 7 days)
       const { data: recentComments } = await supabase
         .from('book_comments')
         .select('created_at')
+        .gte('created_at', sevenDaysAgo)
         .order('created_at', { ascending: false })
         .limit(2);
       
@@ -1463,7 +1476,7 @@ const Admin = () => {
       if (topActivities.length === 0) {
         topActivities.push({
           type: 'system',
-          message: 'No recent activity',
+          message: 'No recent activity in the last 7 days',
           time: 'waiting for events',
           icon: 'Clock',
           timestamp: now
@@ -1708,31 +1721,10 @@ const Admin = () => {
                 alt="NextChapter Logo"
                 className="h-6 sm:h-8 w-auto"
               />
-              <span className="hidden sm:inline-block text-xs uppercase tracking-widest text-dark-gray dark:text-white font-medium">
-                Admin Panel
-              </span>
             </div>
 
             {/* Right - Desktop Navigation */}
             <div className="hidden md:flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => navigate('/')}
-                className="flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-wider text-dark-gray dark:text-white hover:bg-dark-gray/5 dark:hover:bg-white/5 transition-colors"
-                aria-label="Go to home"
-              >
-                <Home className="w-4 h-4" />
-                <span>Home</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => navigate('/profile')}
-                className="flex items-center gap-2 px-4 py-2 text-xs uppercase tracking-wider text-dark-gray dark:text-white hover:bg-dark-gray/5 dark:hover:bg-white/5 transition-colors"
-                aria-label="Go to profile"
-              >
-                <User className="w-4 h-4" />
-                <span>Profile</span>
-              </button>
               <button
                 type="button"
                 onClick={handleSignOut}
@@ -1769,28 +1761,6 @@ const Admin = () => {
                 className="md:hidden overflow-hidden border-t border-dark-gray/10 dark:border-white/10 mt-3 pt-3"
               >
                 <nav className="flex flex-col gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigate('/');
-                      setMobileMenuOpen(false);
-                    }}
-                    className="flex items-center gap-3 px-4 py-3 text-sm uppercase tracking-wider text-dark-gray dark:text-white hover:bg-dark-gray/5 dark:hover:bg-white/5 transition-colors text-left"
-                  >
-                    <Home className="w-5 h-5" />
-                    <span>Home</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigate('/profile');
-                      setMobileMenuOpen(false);
-                    }}
-                    className="flex items-center gap-3 px-4 py-3 text-sm uppercase tracking-wider text-dark-gray dark:text-white hover:bg-dark-gray/5 dark:hover:bg-white/5 transition-colors text-left"
-                  >
-                    <User className="w-5 h-5" />
-                    <span>Profile</span>
-                  </button>
                   <button
                     type="button"
                     onClick={() => {
@@ -1835,9 +1805,21 @@ const Admin = () => {
             <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl xl:text-7xl text-white dark:text-dark-gray mb-3 sm:mb-4 leading-none">
               Admin Dashboard
             </h1>
-            <p className="text-base sm:text-lg text-white/70 dark:text-dark-gray/70 leading-relaxed font-light max-w-xl">
+            <p className="text-base sm:text-lg text-white/70 dark:text-dark-gray/70 leading-relaxed font-light max-w-xl mb-6">
               Manage your books, catalogue and platform analytics from a single place.
             </p>
+            
+            {/* Sign Out Button */}
+            <button
+              onClick={handleSignOut}
+              disabled={signOutLoading}
+              className="group inline-flex items-center gap-3 bg-transparent border border-white dark:border-dark-gray text-white dark:text-dark-gray px-6 py-3 text-xs font-medium uppercase tracking-wider transition-all duration-300 hover:border-red-400 dark:hover:border-red-400 hover:text-red-400 disabled:opacity-50 disabled:cursor-not-allowed relative z-0"
+            >
+              <LogOut className="w-4 h-4 transition-colors duration-300" />
+              <span className="relative z-10 transition-colors duration-300">
+                {signOutLoading ? 'Signing Out...' : 'Sign Out'}
+              </span>
+            </button>
           </div>
           <div className="md:col-span-12 lg:col-span-7 border-t-2 border-white dark:border-dark-gray pt-6 lg:pt-0 lg:border-t-0 lg:border-l-2 lg:pl-10">
             {/* Admin Profile Card - aligned with user profile design */}
@@ -2016,7 +1998,7 @@ const Admin = () => {
               <h3 className="text-lg sm:text-xl font-bold text-white dark:text-dark-gray mb-3 sm:mb-4 uppercase tracking-widest">
                 Quick Actions
               </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 <button
                   onClick={() => {
                     setEditingBook(null);
@@ -2026,14 +2008,6 @@ const Admin = () => {
                 >
                   <Plus className="w-5 h-5 text-white dark:text-dark-gray" />
                   <span className="text-xs text-white dark:text-dark-gray uppercase tracking-wider">Add Book</span>
-                </button>
-                
-                <button
-                  onClick={() => window.open('/contact', '_blank')}
-                  className="flex flex-col items-center gap-2 p-3 sm:p-4 bg-white/10 dark:bg-dark-gray/10 hover:bg-white/20 dark:hover:bg-dark-gray/20 transition-colors"
-                >
-                  <Mail className="w-5 h-5 text-white dark:text-dark-gray" />
-                  <span className="text-xs text-white dark:text-dark-gray uppercase tracking-wider">Contact</span>
                 </button>
                 
                 <button
@@ -2050,14 +2024,6 @@ const Admin = () => {
                 >
                   <Download className="w-5 h-5 text-white dark:text-dark-gray" />
                   <span className="text-xs text-white dark:text-dark-gray uppercase tracking-wider">Export</span>
-                </button>
-                
-                <button
-                  onClick={() => window.open('/privacy', '_blank')}
-                  className="flex flex-col items-center gap-2 p-3 sm:p-4 bg-white/10 dark:bg-dark-gray/10 hover:bg-white/20 dark:hover:bg-dark-gray/20 transition-colors"
-                >
-                  <Flag className="w-5 h-5 text-white dark:text-dark-gray" />
-                  <span className="text-xs text-white dark:text-dark-gray uppercase tracking-wider">Policies</span>
                 </button>
               </div>
             </div>
@@ -2336,7 +2302,30 @@ const Admin = () => {
                             Mark Read
                           </button>
                           <button
-                            onClick={() => window.open(`mailto:${submission.email}?subject=Re: ${submission.subject}`)}
+                            onClick={async () => {
+                              // Open Gmail
+                              const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(submission.email)}&su=${encodeURIComponent('Re: ' + submission.subject)}&body=${encodeURIComponent('Hi ' + submission.name + ',\n\nThank you for contacting us.\n\n---\nOriginal message:\n' + submission.message)}`;
+                              window.open(gmailUrl, '_blank');
+                              
+                              // Delete the submission from database
+                              try {
+                                const { error } = await supabase
+                                  .from('contact_submissions')
+                                  .delete()
+                                  .eq('id', submission.id);
+                                
+                                if (error) {
+                                  console.error('Error deleting submission:', error);
+                                  toast.error('Failed to remove submission');
+                                } else {
+                                  // Refresh the submissions list
+                                  loadContactSubmissions();
+                                  toast.success('Reply sent! Submission removed.');
+                                }
+                              } catch (err) {
+                                console.error('Error:', err);
+                              }
+                            }}
                             className="px-2 py-1 bg-white/20 dark:bg-dark-gray/20 text-white dark:text-dark-gray text-xs uppercase tracking-widest hover:bg-white/30 dark:hover:bg-dark-gray/30 transition-colors"
                           >
                             Reply

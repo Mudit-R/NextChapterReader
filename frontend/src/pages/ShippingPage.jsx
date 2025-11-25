@@ -171,7 +171,7 @@ function ShippingPage() {
                   <li>Clear your browser cache and cookies</li>
                   <li>Try a different browser or device</li>
                   <li>Verify your subscription is active</li>
-                  <li>Contact our support team at <a href="mailto:support@nextchapter.com" className="underline hover:text-white dark:hover:text-dark-gray">support@nextchapter.com</a></li>
+                  <li>Contact our support team at <a href="mailto:202301124@dau.ac.in" className="underline hover:text-white dark:hover:text-dark-gray">202301124@dau.ac.in</a></li>
                 </ul>
               </div>
             </div>
@@ -198,7 +198,7 @@ function ShippingPage() {
                   For questions about access or delivery:
                 </p>
                 <ul className="space-y-2 text-sm">
-                  <li><strong>Email:</strong> support@nextchapter.com</li>
+                  <li><strong>Email:</strong> 202301124@dau.ac.in</li>
                   <li><strong>Website:</strong> <Link to="/contact" className="underline hover:text-white dark:hover:text-dark-gray">Contact Form</Link></li>
                 </ul>
               </div>

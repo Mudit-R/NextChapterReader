@@ -222,27 +222,10 @@ function ContactPage() {
                       For general inquiries:
                     </p>
                     <a 
-                      href="mailto:support@nextchapter.com" 
+                      href="mailto:202301124@dau.ac.in" 
                       className="text-sm text-white dark:text-dark-gray underline hover:opacity-60 transition-opacity"
                     >
-                      support@nextchapter.com
-                    </a>
-                  </div>
-
-                  {/* Support */}
-                  <div className="border-l-2 border-white dark:border-dark-gray pl-6">
-                    <div className="flex items-center gap-3 mb-2">
-                      <MessageSquare className="w-5 h-5 text-white dark:text-dark-gray" />
-                      <h3 className="text-lg text-white dark:text-dark-gray font-medium">Support</h3>
-                    </div>
-                    <p className="text-sm text-white/70 dark:text-dark-gray/70 mb-2">
-                      For technical support:
-                    </p>
-                    <a 
-                      href="mailto:help@nextchapter.com" 
-                      className="text-sm text-white dark:text-dark-gray underline hover:opacity-60 transition-opacity"
-                    >
-                      help@nextchapter.com
+                      202301124@dau.ac.in
                     </a>
                   </div>
 
