@@ -43,32 +43,10 @@ function MonthlyProgressCard({ monthlyData: propMonthlyData = null, readingStats
 
   const loadMonthlyData = async () => {
     try {
-      // Get read books from localStorage
-      let read = []
-      try {
-        const readData = localStorage.getItem('read')
-        if (readData) {
-          read = JSON.parse(readData)
-        }
-      } catch (e) {
-        console.error('Error parsing read books:', e)
-        read = []
-      }
-
-      // Get reading sessions for pages
-      let readingSessions = []
-      try {
-        const sessionsData = localStorage.getItem('reading_sessions')
-        if (sessionsData) {
-          readingSessions = JSON.parse(sessionsData)
-        }
-      } catch (e) {
-        console.error('Error parsing reading sessions:', e)
-        readingSessions = []
-      }
-
-      if (!Array.isArray(read) || read.length === 0) {
-        // Demo data
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (!user) {
+        // Show demo data for non-authenticated users
         const demoData = [
           { month: 'Jan', books: 3, pages: 920 },
           { month: 'Feb', books: 2, pages: 650 },
@@ -100,47 +78,58 @@ function MonthlyProgressCard({ monthlyData: propMonthlyData = null, readingStats
         monthlyPages[month] = 0
       })
 
-      // Fetch book details to get completion dates (or use reading sessions)
       const currentYear = new Date().getFullYear()
-      const yearStart = new Date(currentYear, 0, 1)
+      const yearStart = new Date(currentYear, 0, 1).toISOString()
 
-      // Try to get completion dates from books or estimate from reading sessions
-      readingSessions.forEach(session => {
-        if (session.date) {
-          const sessionDate = new Date(session.date)
-          if (sessionDate >= yearStart) {
+      // Get reading sessions from database for current year
+      const { data: sessions, error: sessionsError } = await supabase
+        .from('reading_sessions')
+        .select('session_date, pages_read, book_id')
+        .eq('user_id', user.id)
+        .gte('session_date', yearStart)
+        .order('session_date', { ascending: true })
+
+      if (sessionsError) {
+        console.error('Error fetching reading sessions:', sessionsError)
+      }
+
+      // Aggregate pages by month from reading sessions
+      if (sessions && sessions.length > 0) {
+        sessions.forEach(session => {
+          const sessionDate = new Date(session.session_date || session.date)
+          if (!isNaN(sessionDate.getTime())) {
             const monthIndex = sessionDate.getMonth()
             const monthName = months[monthIndex]
             if (monthlyPages[monthName] !== undefined) {
-              monthlyPages[monthName] = (monthlyPages[monthName] || 0) + (session.pages || 0)
+              monthlyPages[monthName] += (session.pages_read || 0)
             }
           }
-        }
-      })
-
-      // For books, distribute them across months (simplified - in real app, use actual completion dates)
-      const { data, error } = await supabase
-        .from('books')
-        .select('id')
-        .in('id', read)
-
-      if (!error && data) {
-        // Distribute books evenly across months (for demo)
-        const booksPerMonth = Math.floor(data.length / 12)
-        const remainder = data.length % 12
-
-        months.forEach((month, index) => {
-          monthlyCounts[month] = booksPerMonth + (index < remainder ? 1 : 0)
         })
+      }
 
-        // Calculate total pages from sessions or estimate
-        const totalPagesCount = Object.values(monthlyPages).reduce((sum, pages) => sum + pages, 0)
-        if (totalPagesCount === 0) {
-          // Estimate pages (assuming average 300 pages per book)
-          Object.keys(monthlyCounts).forEach(month => {
-            monthlyPages[month] = monthlyCounts[month] * 300
-          })
-        }
+      // Get books completed this year from book_reads
+      const { data: completedBooks, error: readsError } = await supabase
+        .from('book_reads')
+        .select('book_id, read_at')
+        .eq('user_id', user.id)
+        .gte('read_at', yearStart)
+
+      if (readsError) {
+        console.error('Error fetching completed books:', readsError)
+      }
+
+      // Count books completed by month
+      if (completedBooks && completedBooks.length > 0) {
+        completedBooks.forEach(read => {
+          if (read.read_at) {
+            const readDate = new Date(read.read_at)
+            const monthIndex = readDate.getMonth()
+            const monthName = months[monthIndex]
+            if (monthlyCounts[monthName] !== undefined) {
+              monthlyCounts[monthName]++
+            }
+          }
+        })
       }
 
       const dataArray = months.map(month => ({
@@ -150,8 +139,8 @@ function MonthlyProgressCard({ monthlyData: propMonthlyData = null, readingStats
       }))
 
       setMonthlyData(dataArray)
-      setTotalBooks(data?.length || read.length)
-      setTotalPages(Object.values(monthlyPages).reduce((sum, pages) => sum + pages, 0) || read.length * 300)
+      setTotalBooks(completedBooks?.length || 0)
+      setTotalPages(Object.values(monthlyPages).reduce((sum, pages) => sum + pages, 0))
     } catch (error) {
       console.error('Error loading monthly data:', error)
       // Demo data on error

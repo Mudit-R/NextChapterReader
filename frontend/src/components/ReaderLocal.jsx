@@ -830,7 +830,7 @@ const ReaderLocal = () => {
                     .insert({
                       user_id: user.id,
                       book_id: bookId,
-                      date: todayStr,
+                      session_date: todayStr,
                       minutes_read: minutesDelta,
                       pages_read: pagesDelta,
                     });
