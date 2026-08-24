@@ -1,10 +1,24 @@
-<!-- @format -->
+# NextChapter — Modern Digital Library & AI Reading Platform
 
-# NextChapter
+[![Frontend Deployed on Vercel](https://img.shields.io/badge/Frontend-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com)
+[![Backend AI on Render](https://img.shields.io/badge/Backend%20AI-Render-46E3B7?style=for-the-badge&logo=render&logoColor=black)](https://render.com)
+[![Database Supabase](https://img.shields.io/badge/Database-Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
+[![Groq AI](https://img.shields.io/badge/AI%20Inference-Groq%20Llama%203-F55036?style=for-the-badge)](https://groq.com)
 
-##  Overview
+## 📖 Overview
 
-NextChapter is a modern digital library platform that revolutionizes online reading. Users can explore, read, and manage their book collections with **AI-powered recommendations, content moderation, personalized reading experiences, and comprehensive analytics**. Built with a focus on user experience, accessibility, and scalability.
+**NextChapter** is a full-stack, cloud-deployed digital library and reading platform designed for seamless book exploration, high-performance in-browser PDF rendering, and AI-powered reading assistance.
+
+Users can explore books across multiple genres, track detailed reading metrics, and chat with an **In-Book Grounded RAG Assistant** featuring **Anti-Spoiler Guardrails** that prevent future chapter leaks based on the reader's current page.
+
+---
+
+## 🚀 Live Cloud Architecture
+
+* **Frontend**: React 18, Vite, Tailwind CSS, Framer Motion, and PDF.js — hosted globally on **Vercel** with edge caching and SPA rewrites.
+* **Backend AI Microservice**: FastAPI Python server handling in-book grounded RAG, content moderation, and image generation — hosted on **Render**.
+* **Database & Authentication**: PostgreSQL, Row-Level Security (RLS), and OAuth Auth (Email & Google) — powered by **Supabase**.
+* **AI & LLM Inference**: Ultrafast inference via **Groq Cloud API** (dynamic model resolution for Llama 3 / Allam / Qwen).
 
 ---
 

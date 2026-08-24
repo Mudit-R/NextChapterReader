@@ -1187,21 +1187,10 @@ const ReaderLocal = () => {
           savedProgress = 0;
         }
 
-        // Normalize storage path (handle absolute URLs or bucket-prefixed paths)
+        // Normalize storage path (handle absolute URLs or local /pdfs/ paths or Supabase bucket paths)
         let normalizedPdfPath = pdfFileName.trim();
         const isExternalPdf = /^https?:\/\//i.test(normalizedPdfPath);
-
-        if (!isExternalPdf) {
-          if (/^book-storage\//i.test(normalizedPdfPath)) {
-            normalizedPdfPath = normalizedPdfPath.replace(/^book-storage\//i, '');
-          }
-          if (/^public\//i.test(normalizedPdfPath)) {
-            normalizedPdfPath = normalizedPdfPath.replace(/^public\//i, '');
-          }
-          if (normalizedPdfPath.startsWith('/')) {
-            normalizedPdfPath = normalizedPdfPath.slice(1);
-          }
-        }
+        const isLocalStaticPdf = normalizedPdfPath.startsWith('/') || normalizedPdfPath.startsWith('pdfs/') || normalizedPdfPath.includes('/pdfs/');
 
         // Set initial page from saved progress
         lastScrollPageRef.current = savedPage;
@@ -1231,20 +1220,28 @@ const ReaderLocal = () => {
 
             if (isExternalPdf) {
               fullPdfUrl = normalizedPdfPath;
+            } else if (isLocalStaticPdf) {
+              // Local static asset in frontend/public/pdfs/
+              fullPdfUrl = normalizedPdfPath.startsWith('/') ? normalizedPdfPath : `/${normalizedPdfPath}`;
             } else {
+              // Supabase storage bucket file
+              let cleanStoragePath = normalizedPdfPath
+                .replace(/^(book-storage|Book-storage|pdfs|covers)\//i, '')
+                .replace(/^\/+/, '');
+
               const { data: urlData } = supabase
                 .storage
                 .from('Book-storage')
-                .getPublicUrl(normalizedPdfPath);
+                .getPublicUrl(cleanStoragePath);
 
-              fullPdfUrl = urlData?.publicUrl || '';
+              fullPdfUrl = urlData?.publicUrl || `/pdfs/${cleanStoragePath}`;
             }
 
             if (!fullPdfUrl) {
               throw new Error('Could not resolve PDF URL');
             }
 
-            console.log('📄 PDF URL from Supabase:', fullPdfUrl);
+            console.log('📄 Resolved PDF URL:', fullPdfUrl);
 
             // Get cached PDF URL (will fetch and cache if not already cached)
             console.log('🔄 Checking cache for PDF...');

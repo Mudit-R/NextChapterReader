@@ -221,7 +221,7 @@ INSERT INTO public.books (id, title, author, description, genres, cover_url, fil
     'A timeless romantic masterpiece following the tumultuous relationship between Elizabeth Bennet and the enigmatic Mr. Darcy.',
     ARRAY['Classic', 'Romance', 'Drama', 'Fiction'],
     'https://www.gutenberg.org/cache/epub/1342/pg1342.cover.medium.jpg',
-    'https://www.gutenberg.org/files/1342/1342-pdf.pdf',
+    '/pdfs/pride-and-prejudice.pdf',
     4.85, 342, 1200, 279, 1813
 ),
 (
@@ -231,7 +231,7 @@ INSERT INTO public.books (id, title, author, description, genres, cover_url, fil
     'The groundbreaking gothic science fiction novel telling the tragic story of Victor Frankenstein and his monstrous creation.',
     ARRAY['Science Fiction', 'Horror', 'Classic', 'Gothic'],
     'https://www.gutenberg.org/cache/epub/84/pg84.cover.medium.jpg',
-    'https://www.gutenberg.org/files/84/84-pdf.pdf',
+    '/pdfs/frankenstein.pdf',
     4.72, 285, 950, 211, 1818
 ),
 (
@@ -241,18 +241,18 @@ INSERT INTO public.books (id, title, author, description, genres, cover_url, fil
     'A portrait of the Jazz Age exploring wealth, obsession, and the elusive American Dream in Long Island during the Roaring Twenties.',
     ARRAY['Classic', 'Drama', 'Fiction', 'Literature'],
     'https://www.gutenberg.org/cache/epub/64317/pg64317.cover.medium.jpg',
-    'https://www.gutenberg.org/files/64317/64317-pdf.pdf',
+    '/pdfs/the-great-gatsby.pdf',
     4.65, 410, 1540, 180, 1925
 ),
 (
     '44444444-4444-4444-4444-444444444444',
-    'The Adventures of Sherlock Holmes',
-    'Arthur Conan Doyle',
-    'A collection of twelve captivating detective stories featuring the legendary sleuth Sherlock Holmes and Dr. John Watson.',
-    ARRAY['Mystery', 'Crime', 'Detective', 'Adventure'],
-    'https://www.gutenberg.org/cache/epub/1661/pg1661.cover.medium.jpg',
-    'https://www.gutenberg.org/files/1661/1661-pdf.pdf',
-    4.90, 520, 2100, 307, 1892
+    'Alice''s Adventures in Wonderland',
+    'Lewis Carroll',
+    'A young girl falls down a rabbit hole into a fantastical subterranean world populated by peculiar, anthropomorphic creatures.',
+    ARRAY['Fantasy', 'Adventure', 'Classic', 'Children'],
+    'https://www.gutenberg.org/cache/epub/11/pg11.cover.medium.jpg',
+    '/pdfs/alices-adventures-in-wonderland.pdf',
+    4.78, 450, 1850, 142, 1865
 ),
 (
     '55555555-5555-5555-5555-555555555555',
@@ -261,7 +261,7 @@ INSERT INTO public.books (id, title, author, description, genres, cover_url, fil
     'The iconic vampire story that shaped modern horror, chronicling Count Dracula''s attempt to move from Transylvania to England.',
     ARRAY['Horror', 'Gothic', 'Classic', 'Supernatural'],
     'https://www.gutenberg.org/cache/epub/345/pg345.cover.medium.jpg',
-    'https://www.gutenberg.org/files/345/345-pdf.pdf',
+    '/pdfs/dracula.pdf',
     4.68, 290, 870, 388, 1897
 ),
 (
@@ -269,9 +269,9 @@ INSERT INTO public.books (id, title, author, description, genres, cover_url, fil
     'Metamorphosis',
     'Franz Kafka',
     'A profound existential novella following Gregor Samsa, who awakens one morning transformed into an enormous insect.',
-    ARRAY['Fiction', 'Classics', 'Philosophy', 'Psychological'],
+    ARRAY['Fiction', 'Classic', 'Philosophy', 'Psychological'],
     'https://www.gutenberg.org/cache/epub/5200/pg5200.cover.medium.jpg',
-    'https://www.gutenberg.org/files/5200/5200-pdf.pdf',
+    '/pdfs/the-metamorphosis.pdf',
     4.55, 195, 620, 85, 1915
 )
 ON CONFLICT (id) DO NOTHING;
