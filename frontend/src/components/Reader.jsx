@@ -180,8 +180,8 @@ const Reader = () => {
   };
 
   const resetZoom = () => {
-    setZoomLevel(100);
-    hookSetZoom(100);
+    setZoomLevel(150);
+    hookSetZoom(150);
   };
 
   const sendMessage = async () => {

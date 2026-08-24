@@ -15,14 +15,14 @@ Live Application: [https://next-chapter-reader.vercel.app](https://next-chapter-
 
 ## Visual Preview
 
-### Landing Page and Book Catalog
-![NextChapter Landing Page](./gallery/LandindPage.png)
+### 1. Live Book Catalog & Exploration Grid
+![NextChapter Live Book Catalog](./gallery/explore_catalog.png)
 
-### User Personalization and Genre Onboarding
-![Personalization Setup](./gallery/Personalization.png)
+### 2. Book Detail, Ratings & Discussion
+![NextChapter Book Detail View](./gallery/book_detail.png)
 
-### Authentication and Google OAuth Access
-![Authentication Screen](./gallery/Authentication.png)
+### 3. In-Browser PDF Reader with Canvas Rendering (150% Zoom)
+![NextChapter PDF Reader 150% Zoom](./gallery/pdf_reader_150_zoom.png)
 
 ---
 

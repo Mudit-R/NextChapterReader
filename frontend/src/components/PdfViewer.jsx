@@ -39,7 +39,7 @@ export default function PdfViewer({
 
   const zoomOut = () => setZoom((z) => Math.max(50, z - 10));
   const zoomIn = () => setZoom((z) => Math.min(200, z + 10));
-  const resetZoom = () => setZoom(100);
+  const resetZoom = () => setZoom(150);
 
   return (
     <div className={`pdf-viewer-root ${className}`} style={{ display: 'flex', flexDirection: 'column', ...style }}>
