@@ -1,333 +1,146 @@
-# NextChapter — Modern Digital Library & AI Reading Platform
+# NextChapter - Digital Library and AI Reading Platform
 
-[![Frontend Deployed on Vercel](https://img.shields.io/badge/Frontend-Vercel-black?style=for-the-badge&logo=vercel)](https://vercel.com)
-[![Backend AI on Render](https://img.shields.io/badge/Backend%20AI-Render-46E3B7?style=for-the-badge&logo=render&logoColor=black)](https://render.com)
-[![Database Supabase](https://img.shields.io/badge/Database-Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
-[![Groq AI](https://img.shields.io/badge/AI%20Inference-Groq%20Llama%203-F55036?style=for-the-badge)](https://groq.com)
-
-## 📖 Overview
-
-**NextChapter** is a full-stack, cloud-deployed digital library and reading platform designed for seamless book exploration, high-performance in-browser PDF rendering, and AI-powered reading assistance.
-
-Users can explore books across multiple genres, track detailed reading metrics, and chat with an **In-Book Grounded RAG Assistant** featuring **Anti-Spoiler Guardrails** that prevent future chapter leaks based on the reader's current page.
+Live Application: [https://next-chapter-reader.vercel.app](https://next-chapter-reader.vercel.app)
 
 ---
 
-## 🚀 Live Cloud Architecture
+## Live Deployment Links
 
-* **Frontend**: React 18, Vite, Tailwind CSS, Framer Motion, and PDF.js — hosted globally on **Vercel** with edge caching and SPA rewrites.
-* **Backend AI Microservice**: FastAPI Python server handling in-book grounded RAG, content moderation, and image generation — hosted on **Render**.
-* **Database & Authentication**: PostgreSQL, Row-Level Security (RLS), and OAuth Auth (Email & Google) — powered by **Supabase**.
-* **AI & LLM Inference**: Ultrafast inference via **Groq Cloud API** (dynamic model resolution for Llama 3 / Allam / Qwen).
-
----
-
-##  Features
-
-###  Core Features
-- **Advanced Search & Filters** – Find books by title, author, genre, language, and rating
-- **Built-in PDF Reader** – Read books directly in the browser with PDF.js integration
-- **Dark/Light Theme** – Seamless theme switching with persistent preferences
-- **Fully Responsive** – Optimized for desktop, tablet, and mobile devices
-- **Authentication System** – Secure sign-up/sign-in with OAuth support (Google, GitHub)
-
-###  AI-Powered Features
-- **AI Content Moderation** – Groq-powered moderation for user-generated content
-- **Personalized Recommendations** – Smart book suggestions based on reading preferences
-- **Genre-Based Discovery** – Curated book collections by genre
-
-###  User Dashboard
-- **Reading Statistics** – Track books read, pages completed, and reading time
-- **Reading Activity** – Visual charts showing daily/weekly reading patterns
-- **Monthly Progress** – Monitor reading goals and achievements
-- **Reading Challenge** – Set and track annual reading goals
-- **Currently Reading** – Quick access to books in progress
-- **Pinned Books** – Bookmark favorite books for easy access
-- **Genre Preferences** – Customize reading recommendations
-
-###  Admin Features
-- **Book Management** – Add, edit, and delete books
-- **Bulk Upload** – Upload multiple books via CSV with cover images and PDFs
-- **User Management** – View and manage user accounts
-- **Analytics Dashboard** – Track platform usage and statistics
-
-### 📖 Reading Experience
-- **Reading Lists** – Organize books into custom lists
-- **Already Read** – Track completed books
-- **Trending Books** – Discover popular titles
-- **Highest Rated** – Browse top-rated books
-- **New Releases** – Stay updated with latest additions
-- **Word Meaning Search** – Built-in dictionary for vocabulary lookup
-
-###  Additional Features
-- **Subscription System** – Premium membership with Razorpay integration
-- **Profile Management** – Customize user profiles and preferences
-- **Contact & Support** – User support and feedback system
-- **Legal Pages** – Privacy policy, terms of service, refunds, and shipping info
-- **Custom Cursor** – Enhanced UI interactions
-- **Error Boundaries** – Graceful error handling
-- **Loading States** – Smooth loading animations
+- Frontend Application: [https://next-chapter-reader.vercel.app](https://next-chapter-reader.vercel.app)
+- Backend AI Microservice: [https://nextchapter-backend-ai.onrender.com](https://nextchapter-backend-ai.onrender.com)
+- Database and Auth: [https://supabase.com](https://supabase.com)
 
 ---
 
-## 🛠️ Tech Stack
+## Overview
+
+NextChapter is a full-stack digital library and reading platform designed for seamless book exploration, high-performance in-browser PDF rendering, and AI-powered reading assistance.
+
+Users can explore books across multiple genres, track detailed reading metrics, and chat with an in-book grounded RAG assistant featuring anti-spoiler guardrails that prevent future chapter leaks based on the reader's current page.
+
+---
+
+## Architecture
+
+- Frontend: React 18, Vite, Tailwind CSS, Framer Motion, and PDF.js hosted globally on Vercel with edge routing and single-page application fallback.
+- Backend AI: FastAPI Python server handling in-book grounded retrieval-augmented generation (RAG), content moderation, and AI cover generation hosted on Render.
+- Database and Authentication: PostgreSQL with Row-Level Security (RLS) policies and OAuth authentication (Google and Email) on Supabase.
+- Inference Engine: Ultra-low latency inference via Groq API (dynamic model selection across Llama 3.3, Allam 2, and Qwen models).
+
+---
+
+## Features
+
+### Core Reader and Library
+- In-Browser PDF Rendering: Canvas-based PDF viewer with zoom, full-screen, continuous scrolling, and offline caching.
+- Advanced Catalog Search: Filter and sort by title, author, genre, language, publication year, and community ratings.
+- User Bookshelf and Progress: Track reading status (want to read, currently reading, completed), exact page progress, bookmarks, and highlights.
+- Theme Customization: Dark and light modes with persistent local and profile preferences.
+- Authentication: Secure email/password and Google OAuth workflows with automatic profile creation.
+
+### AI Reading Assistant
+- In-Book Grounded RAG: Context-aware Q&A answering questions exclusively from the book contents.
+- Anti-Spoiler Mode: Restricts context retrieval to pages at or before the user's current reading position.
+- Content Moderation: Automated screening of user comments and community submissions.
+- Contextual Explanations: Inline vocabulary definitions and character relationship summaries.
+
+### Community and Analytics
+- Interactive Discussion: Real-time book comments, nested replies, upvoting, and user reporting.
+- Personal Dashboard: Reading streak calculations, total hours read, completed books, and annual reading challenges.
+- Admin Panel: Book catalog management, metadata edits, and batch CSV imports.
+
+---
+
+## Tech Stack
 
 ### Frontend
-- **React 18** – Modern UI library with hooks
-- **Vite** – Lightning-fast build tool and dev server
-- **Tailwind CSS 4** – Utility-first CSS framework
-- **Framer Motion** – Smooth animations and transitions
-- **React Router DOM** – Client-side routing
-- **Lucide React** – Beautiful icon library
-- **Recharts** – Data visualization for analytics
-- **PDF.js** – PDF rendering in browser
-- **Socket.io Client** – Real-time features
-- **React Toastify** – Toast notifications
+- React 18
+- Vite
+- Tailwind CSS
+- Framer Motion
+- React Router DOM
+- Lucide React
+- Recharts
+- PDF.js
+- Socket.io Client
 
-### Backend & Services
-- **Supabase** – Backend-as-a-Service (Database, Auth, Storage)
-- **FastAPI (Python)** – AI moderation service
-- **Groq API** – AI-powered content moderation
-
-### Development Tools
-- **FingerprintJS** – Device fingerprinting
-- **DOMPurify** – XSS protection
-- **date-fns** – Date manipulation
-- **Razorpay** – Payment gateway integration
-
-### Deployment
-- **Vercel** – Frontend hosting
-- **Render** – Backend AI service hosting
+### Backend and Services
+- Supabase (PostgreSQL, Auth, Storage)
+- FastAPI (Python 3.11)
+- Groq Cloud API
+- Uvicorn
+- Pydantic
 
 ---
 
-##  Project Structure
+## Project Structure
 
-```bash
-NextChapter-React/
-├── frontend/                    # React application
+```text
+NextChapter/
+├── frontend/                     # React Single Page Application
+│   ├── public/                  # Static assets and self-hosted book PDFs
+│   │   └── pdfs/                # Complete public-domain book PDFs
 │   ├── src/
-│   │   ├── components/         # Reusable UI components
-│   │   │   ├── dashboard/     # Dashboard-specific components
-│   │   │   ├── Admin.jsx      # Admin panel
-│   │   │   ├── BulkUploadModal.jsx  # Bulk book upload
-│   │   │   ├── Header.jsx     # Navigation header
-│   │   │   ├── HeroSection.jsx
-│   │   │   ├── BookSection.jsx
-│   │   │   ├── PdfViewer.jsx  # PDF reader
-│   │   │   ├── Reader.jsx     # Book reader
-│   │   │   └── ...
-│   │   ├── pages/             # Page components
-│   │   │   ├── LandingPage.jsx
-│   │   │   ├── BooksPage.jsx
-│   │   │   ├── BookDetailPage.jsx
-│   │   │   ├── ProfilePage.jsx
-│   │   │   ├── ExploreBooksPage.jsx
-│   │   │   ├── ReadingListPage.jsx
-│   │   │   ├── SignInPage.jsx
-│   │   │   └── ...
-│   │   ├── contexts/          # React contexts
-│   │   │   ├── AuthContext.jsx
-│   │   │   └── ThemeContext.jsx
-│   │   ├── hooks/             # Custom React hooks
-│   │   │   └── useRazorpay.js
-│   │   ├── lib/               # Utility functions
-│   │   │   ├── supabaseClient.js
-│   │   │   ├── bookUtils.js
-│   │   │   ├── dashboardUtils.js
-│   │   │   ├── errorHandler.js
-│   │   │   └── ...
-│   │   ├── services/          # API services
-│   │   │   └── moderation/
-│   │   ├── pdf/               # PDF utilities
-│   │   ├── App.jsx
-│   │   ├── main.jsx
-│   │   └── index.css
-│   ├── public/                # Static assets
-│   │   ├── books-data.json
-│   │   ├── bulk-upload-template.csv
-│   │   ├── pdfs/
-│   │   └── pdfjs/
-│   ├── vite.config.js
-│   ├── tailwind.config.js
+│   │   ├── components/          # Reusable UI elements, reader, and admin panel
+│   │   ├── contexts/            # Authentication and theme contexts
+│   │   ├── lib/                 # Supabase client, PDF cache, and data transformers
+│   │   ├── pages/               # Application routes and views
+│   │   ├── pdf/                 # PDF rendering engine hooks
+│   │   └── services/            # Microservice client connectors
+│   ├── vercel.json              # Vercel SPA rewrites and security headers
 │   └── package.json
-├── backendAI/                  # Python AI service
-│   ├── main.py                # FastAPI server
-│   ├── requirements.txt
-│   ├── render.yaml
-│   └── Setup_AI_Moderation.md
-├── documentation/              # Project documentation
-│   ├── elicitation/
-│   ├── EPICS.md
-│   ├── user-stories.md
-│   └── sprints.md
-├── gallery/                    # Screenshots & media
+├── backendAI/                   # FastAPI AI and RAG microservice
+│   ├── rag/                     # Chunking, vector indexing, and grounded synthesis
+│   ├── main.py                  # API endpoints for moderation, chat, and RAG
+│   ├── requirements.txt         # Python dependencies
+│   └── render.yaml              # Render deployment blueprint
+├── database_setup.sql           # Complete Supabase PostgreSQL schema, RLS, and seed data
+├── populate_library.sql         # Seed catalog with 16 classic books, covers, and PDFs
+├── DEPLOYMENT_GUIDE.md          # Step-by-step cloud deployment walkthrough
 └── README.md
 ```
 
 ---
 
-##  Getting Started
+## Local Development
 
-### Prerequisites
-- Node.js 18+ and npm
-- Python 3.8+ (for AI moderation service)
+### 1. Prerequisites
+- Node.js 18 or higher
+- Python 3.10 or higher
 - Supabase account
-- Groq API key (for AI moderation)
+- Groq Cloud API key
 
-### Frontend Setup
-
-#### 1. Clone the repository
+### 2. Frontend Setup
 ```bash
-git clone https://github.com/Prasanna-Gupta/NextChapter.git
-cd NextChapter-React/frontend
-```
-
-#### 2. Install dependencies
-```bash
+cd frontend
 npm install
-```
-
-#### 3. Set up environment variables
-Create a `.env` file in the `frontend` directory:
-```env
-VITE_SUPABASE_URL=your_supabase_project_url
-VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
-VITE_RAZORPAY_KEY_ID=your_razorpay_key_id
-```
-
-#### 4. Run development server
-```bash
 npm run dev
 ```
+Open `http://localhost:5173` in your browser.
 
-#### 5. Open in browser
-```
-http://localhost:5173
-```
-
-### Backend AI Setup (Optional)
-
-#### 1. Navigate to backend directory
+### 3. Backend AI Setup
 ```bash
 cd backendAI
-```
-
-#### 2. Create virtual environment
-```bash
-# Windows
 python -m venv venv
+# On Windows:
 .\venv\Scripts\activate
-
-# macOS/Linux
-python3 -m venv venv
+# On macOS/Linux:
 source venv/bin/activate
-```
 
-#### 3. Install dependencies
-```bash
 pip install -r requirements.txt
+python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 ```
-
-#### 4. Set up environment variables
-Create a `.env` file in the `backendAI` directory:
-```env
-GROQ_API_KEY=your_groq_api_key_here
-PORT=8000
-```
-
-#### 5. Run the AI service
-```bash
-python -m uvicorn main:app --reload
-```
-
-The AI moderation service will be available at `http://localhost:8000`
 
 ---
 
-## 🔧 Available Scripts
+## Database Configuration
 
-### Frontend
-- `npm run dev` - Start development server (Vite)
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-
-### Backend AI
-- `python -m uvicorn main:app --reload` - Start AI service with hot reload
-- Access API docs at `http://localhost:8000/docs`
+1. Open the SQL Editor in your Supabase project dashboard.
+2. Execute `database_setup.sql` to generate all required tables, security policies, and indexes.
+3. Execute `populate_library.sql` to insert the classic book dataset.
 
 ---
 
-## 🎨 Design Philosophy
+## License
 
-NextChapter follows a clean, modern design approach:
-- **Minimalist Interface** – Focus on content, not clutter
-- **Cream & Coral Color Scheme** – Warm, inviting aesthetic
-- **Dark Mode Support** – Reduce eye strain for night reading
-- **Smooth Animations** – Framer Motion for delightful interactions
-- **Responsive Layout** – Seamless experience across all devices
-- **Accessibility First** – WCAG compliant design patterns
-
-[View Figma Prototype](https://www.figma.com/design/1hZPTeSGErMWfbfgiuGxFP/NextChapter?node-id=261-76&t=6hj7PHXcodaAcMU4-1)
-
----
-
-## �️ Dat abase Schema (Supabase)
-
-### Tables
-- **books** - Book catalog with metadata, cover images, and PDF files
-- **users** - User accounts and profiles
-- **reading_progress** - Track user reading progress
-- **reading_lists** - User-created book lists
-- **subscriptions** - Premium membership data
-- **user_preferences** - Personalization settings
-
-### Storage Buckets
-- **covers** - Book cover images
-- **pdfs** - Book PDF files
-
-##  Key Features Explained
-
-### Bulk Upload Books
-Admins can upload multiple books at once using a CSV file:
-1. Download the CSV template from the admin panel
-2. Fill in book details (title, author, description, genres, etc.)
-3. Add `cover_filename` and `pdf_filename` columns
-4. Upload the CSV along with corresponding image and PDF files
-5. System automatically matches files by name and uploads to Supabase
-
-### AI Content Moderation
-- Powered by Groq API for real-time content analysis
-- Moderates user comments, reviews, and feedback
-- Flags inappropriate content automatically
-- FastAPI backend service deployed on Render
-
-### Reading Analytics
-- Tracks reading time, pages read, and books completed
-- Visual charts using Recharts
-- Monthly and yearly progress tracking
-- Reading streak and challenge features
-
-### Personalization
-- Genre preference selection
-- AI-powered book recommendations
-- Customized book discovery based on reading history
-- Trending and highest-rated book suggestions
-
----
-
-##  Security Features
-
-- **XSS Protection** - DOMPurify sanitization
-- **Authentication** - Supabase Auth with OAuth
-- **Device Fingerprinting** - FingerprintJS for security
-- **Error Boundaries** - Graceful error handling
-- **Input Validation** - Pydantic models for API validation
-
-##  Deployment
-
-### Frontend (Vercel)
-```bash
-npm run build
-# Deploy the dist/ folder to Vercel
-```
+This project is licensed under the MIT License.
