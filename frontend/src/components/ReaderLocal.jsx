@@ -1045,22 +1045,23 @@ const ReaderLocal = () => {
       }
 
       const page = await pdfDocRef.current.getPage(pageNum);
-      const scale = (zoom / 100) * 1.5;
-      const viewport = page.getViewport({ scale });
+      const effectiveScale = (zoom / 100) * 1.5;
+      const viewport = page.getViewport({ scale: effectiveScale });
 
       let canvas = viewerRef.current.querySelector('canvas');
       if (!canvas) {
         viewerRef.current.innerHTML = '';
         canvas = document.createElement('canvas');
-        canvas.className = 'pdf-page-canvas shadow-2xl rounded-lg mx-auto transition-all duration-200';
+        canvas.className = 'pdf-page-canvas shadow-2xl rounded-lg mx-auto block transition-all duration-200';
         viewerRef.current.appendChild(canvas);
       }
 
       const context = canvas.getContext('2d');
-      canvas.height = viewport.height;
       canvas.width = viewport.width;
-      canvas.style.maxWidth = '100%';
-      canvas.style.height = 'auto';
+      canvas.height = viewport.height;
+      canvas.style.width = `${Math.round(viewport.width)}px`;
+      canvas.style.height = `${Math.round(viewport.height)}px`;
+      canvas.style.maxWidth = 'none';
 
       const renderContext = {
         canvasContext: context,
@@ -1071,7 +1072,7 @@ const ReaderLocal = () => {
       renderTaskRef.current = task;
       await task.promise;
       renderTaskRef.current = null;
-      console.log(`✅ Rendered page ${pageNum}`);
+      console.log(`✅ Rendered page ${pageNum} at ${zoom}% zoom (width: ${viewport.width}px)`);
     } catch (err) {
       if (err?.name !== 'RenderingCancelledException') {
         console.error(`Error rendering page ${pageNum}:`, err);
@@ -1985,7 +1986,7 @@ Guidelines:
             <div 
               id="viewer" 
               ref={viewerRef} 
-              className={`w-full h-full relative overflow-y-auto overflow-x-hidden pt-4 md:pt-6 ${loading ? 'invisible' : ''}`}
+              className={`w-full h-full relative overflow-y-auto overflow-x-auto flex justify-center items-start pt-4 md:pt-6 ${loading ? 'invisible' : ''}`}
             ></div>
 
             {/* Next Page Button */}
