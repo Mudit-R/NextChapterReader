@@ -28,7 +28,7 @@ export default function usePdfRenderer({
   // State
   const [currentPage, setCurrentPage] = useState(initialPage);
   const [totalPages, setTotalPages] = useState(0);
-  const [zoom, setZoomState] = useState(100);
+  const [zoom, setZoomState] = useState(150);
 
   // PDF + DOM refs
   const pdfRef = useRef(null); // PDFDocumentProxy

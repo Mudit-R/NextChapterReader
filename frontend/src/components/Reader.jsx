@@ -11,7 +11,7 @@ const Reader = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
   const [darkMode, setDarkMode] = useState(false);
-  const [zoomLevel, setZoomLevel] = useState(100);
+  const [zoomLevel, setZoomLevel] = useState(150);
   const [chatbotOpen, setChatbotOpen] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [apiProvider, setApiProvider] = useState('groq');

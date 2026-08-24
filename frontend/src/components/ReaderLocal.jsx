@@ -31,7 +31,7 @@ const ReaderLocal = () => {
   const [bookCover, setBookCover] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
-  const [zoomLevel, setZoomLevel] = useState(100);
+  const [zoomLevel, setZoomLevel] = useState(150);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [chatbotOpen, setChatbotOpen] = useState(false);
@@ -1491,7 +1491,7 @@ const ReaderLocal = () => {
 
 
   const handleZoom = (delta) => {
-    const next = Math.max(50, Math.min(150, zoomLevel + delta));
+    const next = Math.max(50, Math.min(250, zoomLevel + delta));
     setZoomLevel(next);
     // Re-render current page with new zoom level
     if (pdfDocRef.current && currentPage > 0) {
@@ -1500,10 +1500,10 @@ const ReaderLocal = () => {
   };
 
   const resetZoom = () => {
-    setZoomLevel(100);
-    // Re-render current page with default zoom level
+    setZoomLevel(150);
+    // Re-render current page with default 150% zoom level
     if (pdfDocRef.current && currentPage > 0) {
-      renderPage(currentPage, 100);
+      renderPage(currentPage, 150);
     }
   };
 
