@@ -103,14 +103,65 @@ CREATE TABLE IF NOT EXISTS public.book_scroll_depth (
     UNIQUE(user_id, book_id)
 );
 
--- 7. BOOK COMMENTS & MODERATION
+-- 7. BOOK COMMENTS, REPLIES, REACTIONS & REPORTS
 CREATE TABLE IF NOT EXISTS public.book_comments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     book_id UUID REFERENCES public.books(id) ON DELETE CASCADE,
-    comment TEXT NOT NULL,
+    author_name TEXT,
+    text TEXT,
+    comment TEXT,
+    upvotes_count INT DEFAULT 0,
     is_moderated BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.book_comment_replies (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    comment_id UUID REFERENCES public.book_comments(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    author_name TEXT,
+    text TEXT NOT NULL,
+    upvotes_count INT DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS public.book_comment_reactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    comment_id UUID REFERENCES public.book_comments(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    reaction_type TEXT DEFAULT 'upvote',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(comment_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.book_reply_reactions (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    reply_id UUID REFERENCES public.book_comment_replies(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    reaction_type TEXT DEFAULT 'upvote',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(reply_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.book_comment_reports (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    comment_id UUID REFERENCES public.book_comments(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    reason TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(comment_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS public.book_reply_reports (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    reply_id UUID REFERENCES public.book_comment_replies(id) ON DELETE CASCADE,
+    user_id REFERENCES auth.users(id) ON DELETE CASCADE,
+    reason TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    UNIQUE(reply_id, user_id)
 );
 
 -- 8. SUBSCRIPTIONS & PAYMENTS
@@ -197,8 +248,31 @@ CREATE POLICY "Users can manage own reading lists" ON public.user_books FOR ALL 
 CREATE POLICY "Ratings are publicly readable" ON public.book_ratings FOR SELECT USING (true);
 CREATE POLICY "Users can rate books" ON public.book_ratings FOR ALL USING (auth.uid() = user_id);
 
+ALTER TABLE public.book_comments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.book_comment_replies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.book_comment_reactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.book_reply_reactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.book_comment_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.book_reply_reports ENABLE ROW LEVEL SECURITY;
+
 CREATE POLICY "Comments are publicly readable" ON public.book_comments FOR SELECT USING (true);
-CREATE POLICY "Users can post comments" ON public.book_comments FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users can post comments" ON public.book_comments FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update comments" ON public.book_comments FOR UPDATE USING (auth.uid() = user_id OR auth.role() = 'authenticated');
+CREATE POLICY "Users can delete own comments" ON public.book_comments FOR DELETE USING (auth.uid() = user_id);
+
+CREATE POLICY "Replies are publicly readable" ON public.book_comment_replies FOR SELECT USING (true);
+CREATE POLICY "Users can post replies" ON public.book_comment_replies FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update replies" ON public.book_comment_replies FOR UPDATE USING (auth.uid() = user_id OR auth.role() = 'authenticated');
+CREATE POLICY "Users can delete own replies" ON public.book_comment_replies FOR DELETE USING (auth.uid() = user_id);
+
+CREATE POLICY "Reactions are readable" ON public.book_comment_reactions FOR SELECT USING (true);
+CREATE POLICY "Users can add reactions" ON public.book_comment_reactions FOR ALL USING (auth.uid() = user_id);
+
+CREATE POLICY "Reply reactions are readable" ON public.book_reply_reactions FOR SELECT USING (true);
+CREATE POLICY "Users can add reply reactions" ON public.book_reply_reactions FOR ALL USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can report comments" ON public.book_comment_reports FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Users can report replies" ON public.book_reply_reports FOR ALL USING (auth.uid() = user_id);
 
 -- Subscriptions & Payments: User only
 CREATE POLICY "Users can view own subscription" ON public.user_subscriptions FOR SELECT USING (auth.uid() = user_id);
