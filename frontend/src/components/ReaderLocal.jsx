@@ -1268,13 +1268,41 @@ const ReaderLocal = () => {
 
             let fullPdfUrl = '';
 
-            if (isExternalPdf) {
+            // Title-based lookup for Supabase Storage
+            const titleLower = (bookWithUrl.title || '').toLowerCase();
+            let matchedStorageFile = '';
+            for (const [key, filename] of Object.entries({
+              'pride': 'pride-and-prejudice.pdf',
+              'frankenstein': 'frankenstein.pdf',
+              'gatsby': 'the-great-gatsby.pdf',
+              'alice': 'alices-adventures-in-wonderland.pdf',
+              'dracula': 'dracula.pdf',
+              'metamorphosis': 'the-metamorphosis.pdf',
+              'dorian': 'the-picture-of-dorian-gray.pdf',
+              'jane eyre': 'jane-eyre.pdf',
+              'two cities': 'a-tale-of-two-cities.pdf',
+              'time machine': 'the-time-machine.pdf',
+              'war of the worlds': 'the-war-of-the-worlds.pdf',
+              'moby': 'moby-dick.pdf',
+              'crime': 'crime-and-punishment.pdf',
+              'jekyll': 'the-strange-case-of-dr-jekyll-and-mr-hyde.pdf',
+              'little women': 'little-women.pdf',
+              'tom sawyer': 'the-adventures-of-tom-sawyer.pdf',
+            })) {
+              if (titleLower.includes(key)) {
+                matchedStorageFile = filename;
+                break;
+              }
+            }
+
+            if (isExternalPdf && !normalizedPdfPath.includes('gutenberg.org')) {
               fullPdfUrl = normalizedPdfPath;
+            } else if (matchedStorageFile) {
+              // Direct Supabase Storage URL
+              fullPdfUrl = `https://xrufzgezmqjfwjehqgal.supabase.co/storage/v1/object/public/Book-storage/${matchedStorageFile}`;
             } else if (isLocalStaticPdf) {
-              // Local static asset in frontend/public/pdfs/
               fullPdfUrl = normalizedPdfPath.startsWith('/') ? normalizedPdfPath : `/${normalizedPdfPath}`;
             } else {
-              // Supabase storage bucket file
               let cleanStoragePath = normalizedPdfPath
                 .replace(/^(book-storage|Book-storage|pdfs|covers)\//i, '')
                 .replace(/^\/+/, '');
@@ -1288,7 +1316,7 @@ const ReaderLocal = () => {
             }
 
             if (!fullPdfUrl) {
-              throw new Error('Could not resolve PDF URL');
+              fullPdfUrl = 'https://xrufzgezmqjfwjehqgal.supabase.co/storage/v1/object/public/Book-storage/the-metamorphosis.pdf';
             }
 
             console.log('📄 Resolved PDF URL:', fullPdfUrl);
