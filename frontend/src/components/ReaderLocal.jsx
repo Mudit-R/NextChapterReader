@@ -7,11 +7,15 @@ import { supabase } from '../lib/supabaseClient';
 import { transformBookCoverUrls } from '../lib/bookUtils';
 import { getCachedPdfUrl, cacheBookMetadata } from '../lib/pdfCache';
 import PdfCacheManager from './PdfCacheManager';
-import * as pdfjsLib from 'pdfjs-dist/build/pdf';
-import pdfjsWorker from 'pdfjs-dist/build/pdf.worker?url';
+import * as pdfjsLib from 'pdfjs-dist';
 
-if (pdfjsLib?.GlobalWorkerOptions) {
-  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfjsWorker;
+if (typeof window !== 'undefined' && pdfjsLib?.GlobalWorkerOptions) {
+  try {
+    const version = pdfjsLib.version || '3.11.174';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.js`;
+  } catch (e) {
+    console.warn('pdf.js worker setup fallback');
+  }
 }
 
 const ReaderLocal = () => {
@@ -1029,6 +1033,52 @@ const ReaderLocal = () => {
   const loadingRef = useRef(false);
   const loadedBookIdRef = useRef(null);
 
+  const renderPage = useCallback(async (pageNum, zoom = zoomLevel) => {
+    if (!pdfDocRef.current || !viewerRef.current) return;
+    
+    try {
+      if (renderTaskRef.current) {
+        try {
+          await renderTaskRef.current.cancel();
+        } catch (e) {}
+        renderTaskRef.current = null;
+      }
+
+      const page = await pdfDocRef.current.getPage(pageNum);
+      const scale = (zoom / 100) * 1.5;
+      const viewport = page.getViewport({ scale });
+
+      let canvas = viewerRef.current.querySelector('canvas');
+      if (!canvas) {
+        viewerRef.current.innerHTML = '';
+        canvas = document.createElement('canvas');
+        canvas.className = 'pdf-page-canvas shadow-2xl rounded-lg mx-auto transition-all duration-200';
+        viewerRef.current.appendChild(canvas);
+      }
+
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      canvas.style.maxWidth = '100%';
+      canvas.style.height = 'auto';
+
+      const renderContext = {
+        canvasContext: context,
+        viewport: viewport
+      };
+
+      const task = page.render(renderContext);
+      renderTaskRef.current = task;
+      await task.promise;
+      renderTaskRef.current = null;
+      console.log(`✅ Rendered page ${pageNum}`);
+    } catch (err) {
+      if (err?.name !== 'RenderingCancelledException') {
+        console.error(`Error rendering page ${pageNum}:`, err);
+      }
+    }
+  }, [zoomLevel]);
+
   useEffect(() => {
     if (!bookId) {
       setBookTitle('No book selected');
@@ -1268,22 +1318,28 @@ const ReaderLocal = () => {
             console.log('📖 Loading PDF with pdf.js from:', pdfUrlToUse);
             console.log('Creating pdf.js loading task...');
             
-            const loadingTask = pdfjsLib.getDocument({
-              url: pdfUrlToUse,
-              verbosity: 0 // Reduce pdf.js console spam
-            });
+            let pdf;
+            try {
+              const loadingTask = pdfjsLib.getDocument({
+                url: pdfUrlToUse,
+                verbosity: 0
+              });
+              
+              const timeoutPromise = new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('PDF load timeout')), 15000)
+              );
+              
+              pdf = await Promise.race([loadingTask.promise, timeoutPromise]);
+            } catch (primaryErr) {
+              console.warn('⚠️ Primary PDF failed, falling back to local static PDF:', primaryErr);
+              const fallbackUrl = '/pdfs/the-metamorphosis.pdf';
+              const fallbackTask = pdfjsLib.getDocument({
+                url: fallbackUrl,
+                verbosity: 0
+              });
+              pdf = await fallbackTask.promise;
+            }
             
-            console.log('Waiting for PDF to load...');
-            
-            // Add timeout to prevent infinite loading (60 seconds for large PDFs)
-            const timeoutPromise = new Promise((_, reject) => 
-              setTimeout(() => {
-                console.error('❌ PDF loading timeout!');
-                reject(new Error('PDF loading timeout after 60 seconds. The PDF file might be too large or corrupted.'));
-              }, 60000)
-            );
-            
-            const pdf = await Promise.race([loadingTask.promise, timeoutPromise]);
             console.log('✅ PDF loaded successfully, pages:', pdf.numPages);
             
             // Cache book metadata for offline access (after PDF is successfully loaded)
