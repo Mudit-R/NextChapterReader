@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  backend-ai:
+    build:
+      context: ./backendAI
+      dockerfile: Dockerfile
+    container_name: nextchapter-backend-ai
+    ports:
+      - "8001:8001"
+    environment:
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - EMBEDDING_MODEL=all-MiniLM-L6-v2
+    restart: unless-stopped

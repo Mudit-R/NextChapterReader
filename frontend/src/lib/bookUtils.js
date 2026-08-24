@@ -9,13 +9,14 @@ export function transformBookCoverUrls(books) {
   const transformSingle = (book) => {
     if (!book) return book
     
-    let coverImage = book.cover_image
+    let coverImage = book.cover_image || book.cover_url || book.coverUrl
     
     // If cover_image is already a full URL, return as is
-    if (coverImage && coverImage.startsWith('http')) {
+    if (coverImage && (coverImage.startsWith('http') || coverImage.startsWith('data:'))) {
       return {
         ...book,
-        cover_image: coverImage
+        cover_image: coverImage,
+        cover_url: coverImage
       }
     }
     

@@ -1089,9 +1089,9 @@ const ReaderLocal = () => {
         
         // Metadata will be cached after PDF is successfully loaded
         
-        // Get PDF file from Supabase Storage
-        // Prefer full URL in pdf_file, then explicit path/filename fields
-        const pdfFileName = book.pdf_file || book.pdf_path || book.pdf_filename;
+        // Get PDF file from Supabase Storage or Direct Link
+        // Prefer file_url / pdf_file / pdf_path / pdf_filename
+        const pdfFileName = book.file_url || book.pdf_file || book.pdf_path || book.pdf_filename || book.pdfUrl;
         
         console.log('Book data:', {
           id: book.id,

@@ -19,6 +19,7 @@ const Reader = () => {
   const [chatbotInput, setChatbotInput] = useState('');
   const [loading, setLoading] = useState(true);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [antiSpoilerEnabled, setAntiSpoilerEnabled] = useState(true);
 
   const viewerRef = useRef(null);
   const pdfUrlRef = useRef('');
@@ -217,9 +218,11 @@ const Reader = () => {
         },
         body: JSON.stringify({
           message: message,
+          book_id: String(id || bookTitle),
           book_title: bookTitle,
           current_page: currentPage,
-          total_pages: totalPages
+          total_pages: totalPages,
+          enable_anti_spoiler: antiSpoilerEnabled
         })
       });
       
@@ -234,7 +237,12 @@ const Reader = () => {
       
       const data = await response.json();
       const aiResponse = data.response || 'Sorry, I could not generate a response.';
-      setMessages(prev => [...prev, { role: 'ai', text: aiResponse }]);
+      setMessages(prev => [...prev, { 
+        role: 'ai', 
+        text: aiResponse,
+        citations: data.citations || [],
+        spoilerGuard: data.spoiler_guard_active
+      }]);
     } catch (error) {
       // Remove loading message
       setMessages(prev => prev.filter(msg => msg.role !== 'loading'));
@@ -490,21 +498,77 @@ const Reader = () => {
             </div>
           </div>
           <div className="chatbot-context">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-              <span>📖 {bookTitle || 'Loading...'}</span>
-              <span>•</span>
-              <span>Page: {currentPage}</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', flexWrap: 'wrap', width: '100%' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px' }}>
+                <span>📖 {bookTitle || 'Loading...'}</span>
+                <span>•</span>
+                <span>Page: {currentPage}</span>
+              </div>
+              <label 
+                style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '4px', 
+                  fontSize: '11px', 
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                  color: antiSpoilerEnabled ? '#4f46e5' : '#6b7280',
+                  userSelect: 'none'
+                }}
+                title="Filters out passages beyond your current page to prevent spoilers"
+              >
+                <input 
+                  type="checkbox" 
+                  checked={antiSpoilerEnabled} 
+                  onChange={(e) => setAntiSpoilerEnabled(e.target.checked)} 
+                  style={{ cursor: 'pointer' }}
+                />
+                🛡️ Anti-Spoiler
+              </label>
             </div>
           </div>
           <div className="chatbot-messages">
             {messages.length === 0 && (
               <div className="chatbot-message ai">
-                {apiKey ? `Hello! I'm your AI assistant for "${bookTitle}". How can I help you?` : 'Please enter your API key to use the AI assistant.'}
+                {apiKey ? `Hello! I'm your grounded AI assistant for "${bookTitle}". Ask me anything about the text or characters!` : 'Please enter your API key to use the AI assistant.'}
               </div>
             )}
             {messages.map((msg, i) => (
               <div key={i} className={`chatbot-message ${msg.role}`}>
-                {msg.text}
+                <div>{msg.text}</div>
+                {msg.citations && msg.citations.length > 0 && (
+                  <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+                    <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'rgba(0,0,0,0.55)', marginBottom: '4px', fontWeight: 600 }}>
+                      Grounded Citations:
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                      {msg.citations.map((cite, cIdx) => (
+                        <button
+                          key={cIdx}
+                          type="button"
+                          onClick={() => hookNavigateToPage(cite.page_number)}
+                          title={`Excerpt: "${cite.text_excerpt}"`}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            padding: '3px 8px',
+                            borderRadius: '6px',
+                            fontSize: '11px',
+                            fontWeight: 600,
+                            background: '#e0e7ff',
+                            color: '#3730a3',
+                            border: '1px solid #c7d2fe',
+                            cursor: 'pointer',
+                            transition: 'all 0.15s ease'
+                          }}
+                        >
+                          📄 Page {cite.page_number}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
             <div ref={messagesEndRef} />
