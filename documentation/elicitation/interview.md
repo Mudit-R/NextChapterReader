@@ -16,7 +16,7 @@ The interview aimed to understand challenges, opportunities, and expectations re
 ## Interview Recording
 The full audio interview is available here:  
 
-[🎧 Listen to the interview](https://drive.google.com/file/d/1NAaN6Pwe80_DCqQnvOilGkRZEgvfQzwX/view?usp=drive_link)
+[ Listen to the interview](https://drive.google.com/file/d/1NAaN6Pwe80_DCqQnvOilGkRZEgvfQzwX/view?usp=drive_link)
 
 
 # Author Interview – For You (book by Jayasree Kalla) 
@@ -41,7 +41,7 @@ The interview aimed to understand challenges, opportunities, and expectations re
 ## Interview Recording  
 The full interview recording is available here:  
 
-[🎧 Listen to the interview](https://drive.google.com/file/d/18rNak5pa5OnZB_FA7hkMa4PJfdj3JM5Q/view?usp=sharing)  
+[ Listen to the interview](https://drive.google.com/file/d/18rNak5pa5OnZB_FA7hkMa4PJfdj3JM5Q/view?usp=sharing)  
 
 
 # Interviews from General Users

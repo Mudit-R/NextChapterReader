@@ -52,7 +52,7 @@ Use a **progressive search model**: basic search as default, with option to "Ref
 US26 (Trending Books) and US27 (New Releases) may overlap in results, leading to duplicate book listings.  
 
 **Resolution:**  
-Display them as distinct sections. If a new release is also trending, tag it with a “🔥 Trending & New” badge instead of duplicating.  
+Display them as distinct sections. If a new release is also trending, tag it with a “ Trending & New” badge instead of duplicating.  
 
 ---
 

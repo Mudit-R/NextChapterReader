@@ -14,82 +14,82 @@ const CACHE_EXPIRY_DAYS = 30; // PDFs expire after 30 days
  * @returns {Promise<string>} - URL to use with pdf.js (either original URL or cached blob URL)
  */
 export async function getCachedPdfUrl(pdfUrl) {
-  if (!pdfUrl) {
-    throw new Error('PDF URL is required');
+ if (!pdfUrl) {
+ throw new Error('PDF URL is required');
   }
 
   // Check if Cache API is supported
-  if (typeof caches === 'undefined') {
-    console.warn('Cache API not supported, using direct URL');
-    return pdfUrl;
+ if (typeof caches === 'undefined') {
+ console.warn('Cache API not supported, using direct URL');
+ return pdfUrl;
   }
 
-  try {
+ try {
     // Add timeout to prevent hanging
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Cache check timeout')), 3000)
+ const timeoutPromise = new Promise((_, reject) => 
+ setTimeout(() => reject(new Error('Cache check timeout')), 3000)
     );
 
-    const cacheCheckPromise = (async () => {
+ const cacheCheckPromise = (async () => {
       // Open the cache
-      const cache = await caches.open(CACHE_NAME);
+ const cache = await caches.open(CACHE_NAME);
       
       // Check if PDF is already cached
-      const cachedResponse = await cache.match(pdfUrl);
+ const cachedResponse = await cache.match(pdfUrl);
       
-      if (cachedResponse) {
-        console.log('✓ Loading PDF from cache:', pdfUrl);
+ if (cachedResponse) {
+ console.log(' Loading PDF from cache:', pdfUrl);
         
         // Check if cache is expired
-        const cachedDate = cachedResponse.headers.get('x-cached-date');
-        if (cachedDate) {
-          const cacheAge = Date.now() - parseInt(cachedDate);
-          const maxAge = CACHE_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
+ const cachedDate = cachedResponse.headers.get('x-cached-date');
+ if (cachedDate) {
+ const cacheAge = Date.now() - parseInt(cachedDate);
+ const maxAge = CACHE_EXPIRY_DAYS * 24 * 60 * 60 * 1000;
           
-          if (cacheAge > maxAge) {
-            console.log('Cache expired, using direct URL and refreshing cache in background');
+ if (cacheAge > maxAge) {
+ console.log('Cache expired, using direct URL and refreshing cache in background');
             // Delete expired cache in background
-            cache.delete(pdfUrl).catch(err => console.warn('Failed to delete expired cache:', err));
+ cache.delete(pdfUrl).catch(err => console.warn('Failed to delete expired cache:', err));
             // Return original URL immediately
-            return pdfUrl;
+ return pdfUrl;
           }
         }
         
         // Try to create blob URL from cached response
-        try {
-          const blob = await cachedResponse.blob();
-          const blobUrl = URL.createObjectURL(blob);
-          console.log('Created blob URL from cache');
-          return blobUrl;
+ try {
+ const blob = await cachedResponse.blob();
+ const blobUrl = URL.createObjectURL(blob);
+ console.log('Created blob URL from cache');
+ return blobUrl;
         } catch (blobError) {
-          console.warn('Failed to create blob from cache, using direct URL:', blobError);
-          return pdfUrl;
+ console.warn('Failed to create blob from cache, using direct URL:', blobError);
+ return pdfUrl;
         }
       }
       
       // PDF not in cache, use direct URL and cache in background
-      console.log('⬇ PDF not cached, using direct URL and caching in background');
+ console.log('⬇ PDF not cached, using direct URL and caching in background');
       
       // Cache in background without blocking
-      fetchAndCachePdf(pdfUrl, cache)
+ fetchAndCachePdf(pdfUrl, cache)
         .then(() => {
-          console.log('✅ Background caching completed for:', pdfUrl);
+ console.log(' Background caching completed for:', pdfUrl);
         })
         .catch(err => {
-          console.error('❌ Background caching failed for:', pdfUrl, err);
+ console.error(' Background caching failed for:', pdfUrl, err);
         });
       
       // Return original URL immediately for faster loading
-      return pdfUrl;
+ return pdfUrl;
     })();
 
     // Race between cache check and timeout
-    return await Promise.race([cacheCheckPromise, timeoutPromise]);
+ return await Promise.race([cacheCheckPromise, timeoutPromise]);
     
   } catch (error) {
-    console.error('Error accessing PDF cache, using direct URL:', error);
+ console.error('Error accessing PDF cache, using direct URL:', error);
     // Fallback: return original URL without caching
-    return pdfUrl;
+ return pdfUrl;
   }
 }
 
@@ -100,65 +100,65 @@ export async function getCachedPdfUrl(pdfUrl) {
  * @returns {Promise<void>}
  */
 async function fetchAndCachePdf(pdfUrl, cache) {
-  const startTime = Date.now();
+ const startTime = Date.now();
   
-  try {
-    console.log('📥 Fetching PDF for caching:', pdfUrl);
+ try {
+ console.log(' Fetching PDF for caching:', pdfUrl);
     
     // Add timeout for fetch
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+ const controller = new AbortController();
+ const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
     
-    const response = await fetch(pdfUrl, { 
-      signal: controller.signal,
-      mode: 'cors',
-      credentials: 'omit'
+ const response = await fetch(pdfUrl, { 
+ signal: controller.signal,
+ mode: 'cors',
+ credentials: 'omit'
     });
     
-    clearTimeout(timeoutId);
+ clearTimeout(timeoutId);
     
-    if (!response.ok) {
-      throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
+ if (!response.ok) {
+ throw new Error(`Failed to fetch PDF: ${response.status} ${response.statusText}`);
     }
     
-    console.log('📦 PDF fetched, preparing to cache...');
+ console.log(' PDF fetched, preparing to cache...');
     
     // Clone the response before reading it
-    const responseToCache = response.clone();
+ const responseToCache = response.clone();
     
     // Add custom header with cache timestamp
-    const headers = new Headers(responseToCache.headers);
-    headers.set('x-cached-date', Date.now().toString());
+ const headers = new Headers(responseToCache.headers);
+ headers.set('x-cached-date', Date.now().toString());
     
-    const blob = await responseToCache.blob();
-    const sizeMB = (blob.size / (1024 * 1024)).toFixed(2);
+ const blob = await responseToCache.blob();
+ const sizeMB = (blob.size / (1024 * 1024)).toFixed(2);
     
-    console.log(`💾 Storing PDF in cache (${sizeMB} MB)...`);
+ console.log(` Storing PDF in cache (${sizeMB} MB)...`);
     
-    const cachedResponse = new Response(blob, {
-      status: responseToCache.status,
-      statusText: responseToCache.statusText,
-      headers: headers
+ const cachedResponse = new Response(blob, {
+ status: responseToCache.status,
+ statusText: responseToCache.statusText,
+ headers: headers
     });
     
     // Store in cache
-    await cache.put(pdfUrl, cachedResponse);
+ await cache.put(pdfUrl, cachedResponse);
     
-    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
-    console.log(`✅ PDF cached successfully in ${duration}s:`, pdfUrl, `(${sizeMB} MB)`);
+ const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+ console.log(` PDF cached successfully in ${duration}s:`, pdfUrl, `(${sizeMB} MB)`);
     
   } catch (err) {
-    const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+ const duration = ((Date.now() - startTime) / 1000).toFixed(2);
     
-    if (err.name === 'AbortError') {
-      console.error(`❌ PDF caching timeout after ${duration}s:`, pdfUrl);
+ if (err.name === 'AbortError') {
+ console.error(` PDF caching timeout after ${duration}s:`, pdfUrl);
     } else if (err.name === 'QuotaExceededError') {
-      console.error('❌ Storage quota exceeded. Cache is full. Consider clearing old PDFs.');
+ console.error(' Storage quota exceeded. Cache is full. Consider clearing old PDFs.');
     } else {
-      console.error(`❌ Failed to cache PDF after ${duration}s:`, pdfUrl, err.message);
+ console.error(` Failed to cache PDF after ${duration}s:`, pdfUrl, err.message);
     }
     
-    throw err;
+ throw err;
   }
 }
 
@@ -167,13 +167,13 @@ async function fetchAndCachePdf(pdfUrl, cache) {
  * @returns {Promise<boolean>}
  */
 export async function clearPdfCache() {
-  try {
-    const deleted = await caches.delete(CACHE_NAME);
-    console.log('PDF cache cleared:', deleted);
-    return deleted;
+ try {
+ const deleted = await caches.delete(CACHE_NAME);
+ console.log('PDF cache cleared:', deleted);
+ return deleted;
   } catch (error) {
-    console.error('Error clearing PDF cache:', error);
-    return false;
+ console.error('Error clearing PDF cache:', error);
+ return false;
   }
 }
 
@@ -182,38 +182,38 @@ export async function clearPdfCache() {
  * @returns {Promise<Object>}
  */
 export async function getCacheStats() {
-  try {
-    const cache = await caches.open(CACHE_NAME);
-    const keys = await cache.keys();
+ try {
+ const cache = await caches.open(CACHE_NAME);
+ const keys = await cache.keys();
     
-    let totalSize = 0;
-    const pdfs = [];
+ let totalSize = 0;
+ const pdfs = [];
     
-    for (const request of keys) {
-      const response = await cache.match(request);
-      if (response) {
-        const blob = await response.blob();
-        const cachedDate = response.headers.get('x-cached-date');
+ for (const request of keys) {
+ const response = await cache.match(request);
+ if (response) {
+ const blob = await response.blob();
+ const cachedDate = response.headers.get('x-cached-date');
         
-        pdfs.push({
-          url: request.url,
-          size: blob.size,
-          cachedDate: cachedDate ? new Date(parseInt(cachedDate)) : null
+ pdfs.push({
+ url: request.url,
+ size: blob.size,
+ cachedDate: cachedDate ? new Date(parseInt(cachedDate)) : null
         });
         
-        totalSize += blob.size;
+ totalSize += blob.size;
       }
     }
     
-    return {
-      count: pdfs.length,
-      totalSize: totalSize,
-      totalSizeMB: (totalSize / (1024 * 1024)).toFixed(2),
-      pdfs: pdfs
+ return {
+ count: pdfs.length,
+ totalSize: totalSize,
+ totalSizeMB: (totalSize / (1024 * 1024)).toFixed(2),
+ pdfs: pdfs
     };
   } catch (error) {
-    console.error('Error getting cache stats:', error);
-    return { count: 0, totalSize: 0, totalSizeMB: '0', pdfs: [] };
+ console.error('Error getting cache stats:', error);
+ return { count: 0, totalSize: 0, totalSizeMB: '0', pdfs: [] };
   }
 }
 
@@ -223,14 +223,14 @@ export async function getCacheStats() {
  * @returns {Promise<boolean>}
  */
 export async function removeCachedPdf(pdfUrl) {
-  try {
-    const cache = await caches.open(CACHE_NAME);
-    const deleted = await cache.delete(pdfUrl);
-    console.log('PDF removed from cache:', pdfUrl, deleted);
-    return deleted;
+ try {
+ const cache = await caches.open(CACHE_NAME);
+ const deleted = await cache.delete(pdfUrl);
+ console.log('PDF removed from cache:', pdfUrl, deleted);
+ return deleted;
   } catch (error) {
-    console.error('Error removing PDF from cache:', error);
-    return false;
+ console.error('Error removing PDF from cache:', error);
+ return false;
   }
 }
 
@@ -240,12 +240,12 @@ export async function removeCachedPdf(pdfUrl) {
  * @returns {Promise<void>}
  */
 export async function preloadPdf(pdfUrl) {
-  try {
-    await getCachedPdfUrl(pdfUrl);
-    console.log('PDF preloaded successfully:', pdfUrl);
+ try {
+ await getCachedPdfUrl(pdfUrl);
+ console.log('PDF preloaded successfully:', pdfUrl);
   } catch (error) {
-    console.error('Error preloading PDF:', error);
-    throw error;
+ console.error('Error preloading PDF:', error);
+ throw error;
   }
 }
 
@@ -256,29 +256,29 @@ export async function preloadPdf(pdfUrl) {
  * @returns {Promise<void>}
  */
 export async function cacheBookMetadata(bookId, metadata) {
-  try {
-    const cache = await caches.open(METADATA_CACHE_NAME);
+ try {
+ const cache = await caches.open(METADATA_CACHE_NAME);
     
     // Create a unique URL for this book's metadata
     // Use HTTPS URL for better browser compatibility
-    const metadataUrl = `https://nextchapter.app/metadata/book/${bookId}`;
+ const metadataUrl = `https://nextchapter.app/metadata/book/${bookId}`;
     
     // Store metadata as JSON
-    const response = new Response(JSON.stringify({
+ const response = new Response(JSON.stringify({
       ...metadata,
-      bookId,
-      cachedAt: Date.now()
+ bookId,
+ cachedAt: Date.now()
     }), {
-      headers: {
+ headers: {
         'Content-Type': 'application/json',
         'x-cached-date': Date.now().toString()
       }
     });
     
-    await cache.put(metadataUrl, response);
-    console.log('✅ Book metadata cached:', bookId, metadata.title);
+ await cache.put(metadataUrl, response);
+ console.log(' Book metadata cached:', bookId, metadata.title);
   } catch (error) {
-    console.error('❌ Failed to cache book metadata:', error.message);
+ console.error(' Failed to cache book metadata:', error.message);
     // Don't throw - metadata caching failure shouldn't break PDF loading
   }
 }
@@ -288,59 +288,59 @@ export async function cacheBookMetadata(bookId, metadata) {
  * @returns {Promise<Array>} - Array of cached books with metadata
  */
 export async function getCachedBooks() {
-  try {
-    console.log('📚 Getting cached books...');
-    const metadataCache = await caches.open(METADATA_CACHE_NAME);
-    const pdfCache = await caches.open(CACHE_NAME);
+ try {
+ console.log(' Getting cached books...');
+ const metadataCache = await caches.open(METADATA_CACHE_NAME);
+ const pdfCache = await caches.open(CACHE_NAME);
     
-    const metadataKeys = await metadataCache.keys();
-    const pdfKeys = await pdfCache.keys();
+ const metadataKeys = await metadataCache.keys();
+ const pdfKeys = await pdfCache.keys();
     
-    console.log('Found', metadataKeys.length, 'metadata items and', pdfKeys.length, 'PDF items');
+ console.log('Found', metadataKeys.length, 'metadata items and', pdfKeys.length, 'PDF items');
     
     // Get all PDF URLs for quick lookup
-    const pdfUrls = new Set(pdfKeys.map(key => key.url));
+ const pdfUrls = new Set(pdfKeys.map(key => key.url));
     
-    const books = [];
+ const books = [];
     
-    for (const request of metadataKeys) {
+ for (const request of metadataKeys) {
       // Check for both old and new URL formats
-      if (request.url.startsWith('metadata://book/') || request.url.includes('/metadata/book/')) {
-        const response = await metadataCache.match(request);
-        if (response) {
-          const metadata = await response.json();
+ if (request.url.startsWith('metadata://book/') || request.url.includes('/metadata/book/')) {
+ const response = await metadataCache.match(request);
+ if (response) {
+ const metadata = await response.json();
           
           // Check if this book has a cached PDF
           // We need to find if ANY PDF URL contains this book's identifier
-          const bookId = metadata.bookId;
-          const hasPdf = Array.from(pdfUrls).some(url => {
+ const bookId = metadata.bookId;
+ const hasPdf = Array.from(pdfUrls).some(url => {
             // Check if the PDF URL is related to this book
             // This is a simple check - you might need to adjust based on your URL structure
-            return url.includes(encodeURIComponent(metadata.title)) || 
-                   url.includes(bookId) ||
+ return url.includes(encodeURIComponent(metadata.title)) || 
+ url.includes(bookId) ||
                    // Check if metadata has pdf_url stored
                    (metadata.pdf_url && url === metadata.pdf_url);
           });
           
-          if (hasPdf) {
-            console.log('✅ Book has both PDF and metadata:', metadata.title);
-            books.push(metadata);
+ if (hasPdf) {
+ console.log(' Book has both PDF and metadata:', metadata.title);
+ books.push(metadata);
           } else {
-            console.log('⚠️ Book has metadata but no PDF:', metadata.title);
+ console.log('️ Book has metadata but no PDF:', metadata.title);
           }
         }
       }
     }
     
-    console.log('✅ Loaded', books.length, 'complete cached books (with PDFs)');
+ console.log(' Loaded', books.length, 'complete cached books (with PDFs)');
     
     // Sort by most recently cached
-    books.sort((a, b) => (b.cachedAt || 0) - (a.cachedAt || 0));
+ books.sort((a, b) => (b.cachedAt || 0) - (a.cachedAt || 0));
     
-    return books;
+ return books;
   } catch (error) {
-    console.error('❌ Error getting cached books:', error);
-    return [];
+ console.error(' Error getting cached books:', error);
+ return [];
   }
 }
 
@@ -351,16 +351,16 @@ export async function getCachedBooks() {
  * @returns {Promise<boolean>}
  */
 export async function isBookCached(bookId, pdfUrl) {
-  try {
-    const pdfCache = await caches.open(CACHE_NAME);
-    const metadataCache = await caches.open(METADATA_CACHE_NAME);
+ try {
+ const pdfCache = await caches.open(CACHE_NAME);
+ const metadataCache = await caches.open(METADATA_CACHE_NAME);
     
-    const hasPdf = await pdfCache.match(pdfUrl);
-    const hasMetadata = await metadataCache.match(`metadata://book/${bookId}`);
+ const hasPdf = await pdfCache.match(pdfUrl);
+ const hasMetadata = await metadataCache.match(`metadata://book/${bookId}`);
     
-    return !!(hasPdf && hasMetadata);
+ return !!(hasPdf && hasMetadata);
   } catch (error) {
-    return false;
+ return false;
   }
 }
 
@@ -371,18 +371,18 @@ export async function isBookCached(bookId, pdfUrl) {
  * @returns {Promise<boolean>}
  */
 export async function removeCachedBook(bookId, pdfUrl) {
-  try {
-    const pdfCache = await caches.open(CACHE_NAME);
-    const metadataCache = await caches.open(METADATA_CACHE_NAME);
+ try {
+ const pdfCache = await caches.open(CACHE_NAME);
+ const metadataCache = await caches.open(METADATA_CACHE_NAME);
     
-    await pdfCache.delete(pdfUrl);
-    await metadataCache.delete(`metadata://book/${bookId}`);
+ await pdfCache.delete(pdfUrl);
+ await metadataCache.delete(`metadata://book/${bookId}`);
     
-    console.log('Book removed from cache:', bookId);
-    return true;
+ console.log('Book removed from cache:', bookId);
+ return true;
   } catch (error) {
-    console.error('Error removing cached book:', error);
-    return false;
+ console.error('Error removing cached book:', error);
+ return false;
   }
 }
 
@@ -391,12 +391,12 @@ export async function removeCachedBook(bookId, pdfUrl) {
  * @returns {Promise<boolean>}
  */
 export async function clearMetadataCache() {
-  try {
-    const deleted = await caches.delete(METADATA_CACHE_NAME);
-    console.log('Metadata cache cleared:', deleted);
-    return deleted;
+ try {
+ const deleted = await caches.delete(METADATA_CACHE_NAME);
+ console.log('Metadata cache cleared:', deleted);
+ return deleted;
   } catch (error) {
-    console.error('Error clearing metadata cache:', error);
-    return false;
+ console.error('Error clearing metadata cache:', error);
+ return false;
   }
 }

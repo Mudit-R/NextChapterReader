@@ -4,8 +4,8 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.su
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key'
 
 if (!import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY) {
-  console.warn(
-    '⚠️ Missing Supabase credentials in frontend/.env.\n' +
+ console.warn(
+    '️ Missing Supabase credentials in frontend/.env.\n' +
     'Please set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY from your Supabase project settings.'
   )
 }

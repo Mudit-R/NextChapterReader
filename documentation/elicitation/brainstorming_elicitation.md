@@ -17,10 +17,10 @@
 - User/Admin login and profile
 
 **Decisions:**
-- ✅ Subscription model – Finalized
-- ✅ Online book reading platform – Finalized
-- ❌ Author/Publisher roles – Rejected (finalized with just User and Admin)
-- ✅ Basic user/admin login and profile – Finalized
+-  Subscription model – Finalized
+-  Online book reading platform – Finalized
+-  Author/Publisher roles – Rejected (finalized with just User and Admin)
+-  Basic user/admin login and profile – Finalized
 
 ---
 
@@ -47,24 +47,24 @@
 - Rating, review & discussion panel
 
 **Decisions:**
-- ✅ Books catalogue – Accepted
-- ✅ AI book recommendation – Accepted
-- ⏸️ AI translation – On Hold
-- ✅ AI summary – Accepted (Pre-generation at upload)
-- ✅ AI image generation – Accepted (paragraph-based, not entire book)
-- ✅ Personalization – Accepted
-- ❌ Personalized library (Continue reading, Reading list, etc. as a separate module) – Rejected, decided to include features within User Profile
-- ⏸️ AI genre conversion – On Hold
-- ✅ Multi-lingual support for books – Accepted
-- ✅ Text-to-speech / Audiobooks – Accepted
-- ✅ AI chatbot – Accepted
-- ✅ Wishlist / Mark as read – Accepted
-- ✅ Streaks / Challenges – Accepted
-- ⏸️ Vocabulary search – On Hold
-- ✅ Admin analysis – Accepted
-- ✅ User self-behavior analysis – Accepted
-- ❌ Book download – Not allowed
-- ✅ Rating, review & discussion panel – Accepted
+-  Books catalogue – Accepted
+-  AI book recommendation – Accepted
+- ️ AI translation – On Hold
+-  AI summary – Accepted (Pre-generation at upload)
+-  AI image generation – Accepted (paragraph-based, not entire book)
+-  Personalization – Accepted
+-  Personalized library (Continue reading, Reading list, etc. as a separate module) – Rejected, decided to include features within User Profile
+- ️ AI genre conversion – On Hold
+-  Multi-lingual support for books – Accepted
+-  Text-to-speech / Audiobooks – Accepted
+-  AI chatbot – Accepted
+-  Wishlist / Mark as read – Accepted
+-  Streaks / Challenges – Accepted
+- ️ Vocabulary search – On Hold
+-  Admin analysis – Accepted
+-  User self-behavior analysis – Accepted
+-  Book download – Not allowed
+-  Rating, review & discussion panel – Accepted
 
 ---
 
@@ -76,9 +76,9 @@
 - Database selection (Firebase vs. MongoDB)
 
 **Decisions:**
-- 🌗 Light/Dark mode – Discussed (to refine later)
-- ✅ UI/UX colour theme – Finalized: Light warm colours
-- ✅ Database selection – Finalized: Firebase (better adaptability)
+-  Light/Dark mode – Discussed (to refine later)
+-  UI/UX colour theme – Finalized: Light warm colours
+-  Database selection – Finalized: Firebase (better adaptability)
 
 ---
 
@@ -99,10 +99,10 @@
 - Controlled offline access (limited save within platform, no downloads)
 
 **Deferred / Rejected Features:**
-- ⏸️ AI translation – On Hold
-- ⏸️ Vocabulary search – On Hold
-- ❌ Separate personalized library module (merged into user profile)
-- ⏸️ AI genre conversion – On Hold
+- ️ AI translation – On Hold
+- ️ Vocabulary search – On Hold
+-  Separate personalized library module (merged into user profile)
+- ️ AI genre conversion – On Hold
 
 **UI/UX & Technical Choices:**
 - Light warm colour theme
