@@ -27,6 +27,7 @@ const ReaderLocal = () => {
   const [bookCover, setBookCover] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
+  const [progressSync, setProgressSync] = useState('idle');
   const [zoomLevel, setZoomLevel] = useState(150);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -42,7 +43,7 @@ const ReaderLocal = () => {
   const [imageSize, setImageSize] = useState('1024x1024');
   const [imageStyle, setImageStyle] = useState('default');
   const [imageLoading, setImageLoading] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(() => typeof window !== 'undefined' && window.innerWidth >= 768);
   const [readerTheme, setReaderTheme] = useState('light');
   // Dictionary states
   const [word, setWord] = useState('');
@@ -620,7 +621,6 @@ const ReaderLocal = () => {
     }
 
     const container = viewerRef.current;
-    const headerHeight = headerRef.current?.offsetHeight || 0;
 
     // Ensure we have a wrapper div, canvas, and text layer inside the viewer
     let wrapper = container.querySelector('#pdf-wrapper');
@@ -707,7 +707,7 @@ const ReaderLocal = () => {
 
     // Add device-specific top margin to the canvas for better visibility below header
     const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-    const canvasMarginTop = isMobile ? '120px' : '80px';
+    const canvasMarginTop = '0px';
     canvas.style.marginTop = canvasMarginTop;
 
     // Apply invert filter in reader mode
@@ -715,15 +715,15 @@ const ReaderLocal = () => {
 
     // Set wrapper padding so the PDF has space above and below
     // Increase top padding significantly with zoom so content stays accessible
-    const zoomFactor = zoomToUse / 100;
-    const topPadding = headerHeight + (400 * zoomFactor); // More space at higher zoom
-    wrapper.style.paddingTop = `${topPadding}px`;
+    wrapper.style.paddingTop = isMobile ? '16px' : '24px';
     wrapper.style.paddingBottom = '100px';
 
     try {
       const page = await pdfDocRef.current.getPage(safePage);
       const scale = zoomToUse / 100;
       const viewport = page.getViewport({ scale });
+      pageContainer.style.width = `${viewport.width}px`;
+      pageContainer.style.maxWidth = 'none';
 
       const context = canvas.getContext('2d', { alpha: false });
       if (!context) return;
@@ -829,7 +829,9 @@ const ReaderLocal = () => {
     
     // Save to database if user is logged in
     if (user && user.id) {
+      let cancelled = false;
       const saveProgress = async () => {
+        if (!cancelled) setProgressSync('saving');
         try {
           // First, get existing progress to compare
           const { data: existing } = await supabase
@@ -905,7 +907,9 @@ const ReaderLocal = () => {
 
             if (upsertError) {
               console.error('Error saving reading progress:', upsertError);
+              if (!cancelled) setProgressSync('error');
             } else {
+              if (!cancelled) setProgressSync('saved');
               console.log('✅ Reading progress saved:', { 
                 currentPage: normalizedCurrentPage, 
                 highestPage, 
@@ -990,15 +994,18 @@ const ReaderLocal = () => {
                 console.error('Unexpected error logging reading session:', sessionErr);
               }
             }
+          } else if (!cancelled) {
+            setProgressSync('saved');
           }
         } catch (err) {
           console.error('Error saving progress to database:', err);
+          if (!cancelled) setProgressSync('error');
         }
       };
 
       // Debounce database saves to avoid too many writes
       const timeoutId = setTimeout(saveProgress, 1000);
-      return () => clearTimeout(timeoutId);
+      return () => { cancelled = true; clearTimeout(timeoutId); };
     } else {
       // Not logged in - save to localStorage only
       let progress = 0;
@@ -1869,7 +1876,7 @@ Guidelines:
         {/* Main Reader Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Reader Header */}
-          <div ref={headerRef} className={`border-b-2 px-8 py-3 bg-white dark:bg-dark-gray border-dark-gray dark:border-white ${readerTheme === 'reader' ? 'bg-black border-gray-800 text-white' : ''}`}>
+          <div ref={headerRef} className={`border-b px-4 sm:px-8 py-3 bg-white dark:bg-dark-gray border-dark-gray/20 dark:border-white/20 ${readerTheme === 'reader' ? 'bg-black border-gray-800 text-white' : ''}`}>
             <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
               <button 
                 onClick={() => navigate(-1)}
@@ -1880,6 +1887,10 @@ Guidelines:
               <h1 className="text-sm md:text-base text-dark-gray dark:text-white font-light leading-tight truncate flex-1 text-center px-4">
                 {bookTitle || 'Loading…'}
               </h1>
+              <span className="hidden sm:inline text-xs text-dark-gray/60 dark:text-white/60 whitespace-nowrap" aria-label={`Page ${currentPage} of ${totalPages || 'unknown'}`}>{currentPage} / {totalPages || '—'}</span>
+              {progressSync !== 'idle' && <span role="status" className={`text-[10px] whitespace-nowrap ${progressSync === 'error' ? 'text-red-600' : 'text-dark-gray/60 dark:text-white/60'}`}>
+                {progressSync === 'saving' ? 'Saving…' : progressSync === 'error' ? 'Progress not saved' : 'Progress saved'}
+              </span>}
               <button
                 onClick={() => {
                   if (chatbotOpen) {
@@ -1892,6 +1903,8 @@ Guidelines:
                 }}
                 className="w-8 h-8 bg-transparent border border-dark-gray/30 dark:border-white/30 text-dark-gray dark:text-white flex items-center justify-center hover:bg-dark-gray/5 dark:hover:bg-white/5 transition-colors shrink-0"
                 title={chatbotOpen || imageGenOpen ? "Close" : (sidebarOpen ? "Close Controls" : "Open Controls")}
+                aria-label={chatbotOpen || imageGenOpen ? 'Close panel' : (sidebarOpen ? 'Close reading controls' : 'Open reading controls')}
+                aria-expanded={sidebarOpen || chatbotOpen || imageGenOpen}
               >
                 {(sidebarOpen || chatbotOpen || imageGenOpen) ? (
                   <X className="w-4 h-4" />
@@ -1980,7 +1993,7 @@ Guidelines:
         </div>
         
         {/* Sidebar */}
-        <div className={`fixed right-0 w-80 min-w-[320px] max-w-[320px] bg-white dark:bg-dark-gray border-l-2 border-dark-gray dark:border-white overflow-y-auto overflow-x-hidden transform transition-transform duration-300 z-50 ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'} ${readerTheme === 'reader' ? 'bg-black border-gray-800 text-white' : ''}`} style={{ top: 'var(--header-height, 73px)', height: 'calc(100vh - var(--header-height, 73px))' }}>
+        <div className={`fixed right-0 w-[min(320px,90vw)] bg-white dark:bg-dark-gray border-l border-dark-gray/20 dark:border-white/20 shadow-xl overflow-y-auto overflow-x-hidden transform transition-transform duration-300 z-50 ${sidebarOpen ? 'translate-x-0' : 'translate-x-full'} ${readerTheme === 'reader' ? 'bg-black border-gray-800 text-white' : ''}`} style={{ top: 'var(--header-height, 73px)', height: 'calc(100vh - var(--header-height, 73px))' }} aria-hidden={!sidebarOpen} inert={!sidebarOpen ? '' : undefined}>
           <div className="p-4 space-y-4 w-full">
             {/* Page Counter */}
             <div className="space-y-2 pb-4 border-b border-dark-gray/10 dark:border-white/10">
@@ -1997,6 +2010,7 @@ Guidelines:
                     }
                   }} 
                   disabled={currentPage <= 1}
+                  aria-label="Previous page"
                 >
                   <ArrowLeft className="w-3 h-3" />
                 </button>
@@ -2017,6 +2031,7 @@ Guidelines:
                     }
                   }}
                   disabled={totalPages > 0 && currentPage >= totalPages}
+                  aria-label="Next page"
                 >
                   <ArrowRight className="w-3 h-3" />
                 </button>
@@ -2027,6 +2042,7 @@ Guidelines:
                   min="1"
                   max={totalPages > 0 ? totalPages : undefined}
                   placeholder="Go to page..."
+                  aria-label="Go to page"
                   className="flex-1 min-w-0 bg-transparent border border-dark-gray/30 dark:border-white/30 px-2 py-1.5 text-xs text-dark-gray dark:text-white placeholder-dark-gray/40 dark:placeholder-white/40 focus:outline-none focus:border-dark-gray dark:focus:border-white transition-colors"
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
@@ -2444,7 +2460,7 @@ Guidelines:
       
       {/* Chatbot Panel */}
       {chatbotOpen && (
-        <div className="fixed right-0 w-96 bg-white dark:bg-dark-gray border-l-2 border-dark-gray dark:border-white shadow-lg z-50 flex flex-col transform transition-transform duration-300" style={{ top: 'var(--header-height, 73px)', height: 'calc(100vh - var(--header-height, 73px))' }}>
+        <div className="fixed right-0 w-[min(384px,100vw)] bg-white dark:bg-dark-gray border-l-2 border-dark-gray dark:border-white shadow-lg z-50 flex flex-col transform transition-transform duration-300" style={{ top: 'var(--header-height, 73px)', height: 'calc(100vh - var(--header-height, 73px))' }}>
           <div className="p-4 border-b border-dark-gray/10 dark:border-white/10">
             <h3 className="text-xs font-medium uppercase tracking-widest text-dark-gray dark:text-white">AI Book Assistant</h3>
           </div>
