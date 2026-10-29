@@ -193,3 +193,8 @@ Route and authentication loading use the same accessible loading screen, with
 reduced-motion support. Rendering failures offer reload and home navigation.
 Local production browser checks verified an unknown URL and return-home flow;
 these checks do not cover authenticated book reading or production deployment.
+
+The PDF.js worker is bundled with the frontend, so the reader does not depend
+on an external worker CDN. A local signed-in check opened a catalog book and
+rendered page 2 after navigation. The assistant interface opened, but the AI
+provider rejected the configured API key, so answer generation remains unverified.

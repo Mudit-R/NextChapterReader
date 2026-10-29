@@ -8,14 +8,10 @@ import { transformBookCoverUrls } from '../lib/bookUtils';
 import { getCachedPdfUrl, cacheBookMetadata } from '../lib/pdfCache';
 import PdfCacheManager from './PdfCacheManager';
 import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 if (typeof window !== 'undefined' && pdfjsLib?.GlobalWorkerOptions) {
-  try {
-    const version = pdfjsLib.version || '3.11.174';
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${version}/pdf.worker.min.js`;
-  } catch (e) {
-    console.warn('pdf.js worker setup fallback');
-  }
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 }
 
 const ReaderLocal = () => {

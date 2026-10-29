@@ -5,12 +5,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as pdfjsLib from 'pdfjs-dist';
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 
 // Proper worker setup
 if (pdfjsLib?.GlobalWorkerOptions) {
-  // Use CDN worker for pdfjs-dist v5.x (version 5.4.394)
-  const pdfjsVersion = pdfjsLib.version || '5.4.394';
-  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsVersion}/pdf.worker.min.js`;
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 }
 
 const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
