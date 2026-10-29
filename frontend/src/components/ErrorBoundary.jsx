@@ -20,11 +20,12 @@ class ErrorBoundary extends React.Component {
       return (
         <div className="min-h-screen bg-dark-gray dark:bg-white flex items-center justify-center p-4">
           <div className="max-w-md text-center">
+            <p className="text-xs uppercase tracking-widest text-white/60 dark:text-dark-gray/60 mb-4">Let's get you back to reading</p>
             <h1 className="text-4xl text-white dark:text-dark-gray mb-4">
-              Oops!
+              This page couldn't load.
             </h1>
             <p className="text-white/70 dark:text-dark-gray/70 mb-6">
-              Something went wrong. Please refresh the page.
+              Check your connection and reload to try again. If the problem continues, return to the home page.
             </p>
             <button
               onClick={() => window.location.reload()}
@@ -32,6 +33,7 @@ class ErrorBoundary extends React.Component {
             >
               Refresh Page
             </button>
+            <a href="/" className="block mt-5 text-white dark:text-dark-gray underline underline-offset-4">Return to home</a>
           </div>
         </div>
       );

@@ -3,6 +3,7 @@ import { Routes, Route } from 'react-router-dom'
 import OAuthCallbackHandler from './components/OAuthCallbackHandler'
 import ProtectedRoute from './components/ProtectedRoute'
 import ErrorBoundary from './components/ErrorBoundary'
+import PageLoading from './components/PageLoading'
 
 const LandingPage = lazy(() => import('./pages/LandingPage'))
 const BooksPage = lazy(() => import('./pages/BooksPage'))
@@ -34,16 +35,13 @@ const GalleryLocal = lazy(() => import('./components/GalleryLocal'))
 const Reader = lazy(() => import('./components/Reader'))
 const ReaderLocal = lazy(() => import('./components/ReaderLocal'))
 const Admin = lazy(() => import('./components/Admin'))
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 
 function App() {
   return (
     <ErrorBoundary>
       <OAuthCallbackHandler />
-      <Suspense fallback={
-        <div role="status" aria-live="polite" className="min-h-screen flex items-center justify-center bg-cream dark:bg-dark-gray text-dark-gray dark:text-white">
-          <div className="text-center"><p className="text-2xl mb-3">Opening your next chapter…</p><p>Please wait while this page loads.</p></div>
-        </div>
-      }>
+      <Suspense fallback={<PageLoading />}>
       <Routes>
         {/* Public routes - Landing page accessible to everyone including admin */}
         <Route path="/" element={<LandingPage />} />
@@ -242,6 +240,7 @@ function App() {
             </ProtectedRoute>
           } 
         />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
       </Suspense>
     </ErrorBoundary>

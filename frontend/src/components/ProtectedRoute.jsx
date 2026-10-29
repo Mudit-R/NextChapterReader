@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { isAdmin as fetchIsAdmin } from '../lib/personalizationUtils'
+import PageLoading from './PageLoading'
 
 function ProtectedRoute({ children, requireAdmin = false, blockAdmin = false, publicRoute = false }) {
   const { user, loading } = useAuth()
@@ -49,14 +50,7 @@ function ProtectedRoute({ children, requireAdmin = false, blockAdmin = false, pu
 
   // Show loading state while checking authentication or role
   if (loading || roleLoading) {
-    return (
-      <div className="min-h-screen bg-dark-gray dark:bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-coral mb-4"></div>
-          <p className="text-white dark:text-dark-gray">Loading...</p>
-        </div>
-      </div>
-    )
+    return <PageLoading message="Getting your library ready…" />
   }
 
   // Handle public routes (auth pages like sign-in, sign-up)

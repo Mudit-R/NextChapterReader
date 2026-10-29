@@ -187,3 +187,9 @@ gzip). Shared and route chunks are additional downloads; these are build sizes,
 not a measured page-load time or a reduction in total application code. The local
 production browser check covered landing, privacy, and the protected library's
 sign-in redirect. Authenticated reader/admin flows still require account testing.
+
+Unknown URLs now show a dedicated recovery page with home and library links.
+Route and authentication loading use the same accessible loading screen, with
+reduced-motion support. Rendering failures offer reload and home navigation.
+Local production browser checks verified an unknown URL and return-home flow;
+these checks do not cover authenticated book reading or production deployment.
