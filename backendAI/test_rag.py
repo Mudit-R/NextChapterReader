@@ -131,5 +131,9 @@ def run_rag_tests():
  print("==================================================")
 
 
+def test_rag_pipeline():
+    run_rag_tests()
+
+
 if __name__ == "__main__":
- run_rag_tests()
+    run_rag_tests()

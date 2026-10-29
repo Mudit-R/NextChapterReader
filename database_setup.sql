@@ -158,7 +158,7 @@ CREATE TABLE IF NOT EXISTS public.book_comment_reports (
 CREATE TABLE IF NOT EXISTS public.book_reply_reports (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     reply_id UUID REFERENCES public.book_comment_replies(id) ON DELETE CASCADE,
-    user_id REFERENCES auth.users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
     reason TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     UNIQUE(reply_id, user_id)
@@ -225,6 +225,7 @@ ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_books ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.book_ratings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.book_reads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.book_scroll_depth ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.book_comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payments ENABLE ROW LEVEL SECURITY;
@@ -232,7 +233,11 @@ ALTER TABLE public.public_stats ENABLE ROW LEVEL SECURITY;
 
 -- Books: Public read, Admin write
 CREATE POLICY "Books are publicly readable" ON public.books FOR SELECT USING (true);
-CREATE POLICY "Books are editable by authenticated users" ON public.books FOR ALL USING (auth.role() = 'authenticated');
+-- Admin privileges must be assigned through the trusted Supabase Admin API.
+-- profile.is_admin and user_metadata are not authorization sources.
+CREATE POLICY "Admins can manage books" ON public.books FOR ALL TO authenticated
+    USING ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin')
+    WITH CHECK ((auth.jwt() -> 'app_metadata' ->> 'role') = 'admin');
 
 -- User Profiles: Public read, Owner insert & update & delete
 CREATE POLICY "Profiles are readable by everyone" ON public.user_profiles FOR SELECT USING (true);
@@ -243,6 +248,11 @@ CREATE POLICY "Users can delete own profile" ON public.user_profiles FOR DELETE 
 -- User Books: User only
 CREATE POLICY "Users can view own reading lists" ON public.user_books FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can manage own reading lists" ON public.user_books FOR ALL USING (auth.uid() = user_id);
+
+-- Reading progress is private to its owner.
+CREATE POLICY "Users can manage own scroll depth" ON public.book_scroll_depth
+    FOR ALL TO authenticated USING ((SELECT auth.uid()) = user_id)
+    WITH CHECK ((SELECT auth.uid()) = user_id);
 
 -- Book Ratings & Comments: Public read, User write
 CREATE POLICY "Ratings are publicly readable" ON public.book_ratings FOR SELECT USING (true);
@@ -257,12 +267,14 @@ ALTER TABLE public.book_reply_reports ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Comments are publicly readable" ON public.book_comments FOR SELECT USING (true);
 CREATE POLICY "Users can post comments" ON public.book_comments FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update comments" ON public.book_comments FOR UPDATE USING (auth.uid() = user_id OR auth.role() = 'authenticated');
+CREATE POLICY "Users can update comments" ON public.book_comments FOR UPDATE TO authenticated
+    USING ((SELECT auth.uid()) = user_id) WITH CHECK ((SELECT auth.uid()) = user_id);
 CREATE POLICY "Users can delete own comments" ON public.book_comments FOR DELETE USING (auth.uid() = user_id);
 
 CREATE POLICY "Replies are publicly readable" ON public.book_comment_replies FOR SELECT USING (true);
 CREATE POLICY "Users can post replies" ON public.book_comment_replies FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update replies" ON public.book_comment_replies FOR UPDATE USING (auth.uid() = user_id OR auth.role() = 'authenticated');
+CREATE POLICY "Users can update replies" ON public.book_comment_replies FOR UPDATE TO authenticated
+    USING ((SELECT auth.uid()) = user_id) WITH CHECK ((SELECT auth.uid()) = user_id);
 CREATE POLICY "Users can delete own replies" ON public.book_comment_replies FOR DELETE USING (auth.uid() = user_id);
 
 CREATE POLICY "Reactions are readable" ON public.book_comment_reactions FOR SELECT USING (true);

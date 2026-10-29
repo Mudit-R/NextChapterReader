@@ -1033,52 +1033,6 @@ const ReaderLocal = () => {
   const loadingRef = useRef(false);
   const loadedBookIdRef = useRef(null);
 
-  const renderPage = useCallback(async (pageNum, zoom = zoomLevel) => {
-    if (!pdfDocRef.current || !viewerRef.current) return;
-    
-    try {
-      if (renderTaskRef.current) {
-        try {
-          await renderTaskRef.current.cancel();
-        } catch (e) {}
-        renderTaskRef.current = null;
-      }
-
-      const page = await pdfDocRef.current.getPage(pageNum);
-      const effectiveScale = (zoom / 100) * 1.5;
-      const viewport = page.getViewport({ scale: effectiveScale });
-
-      let canvas = viewerRef.current.querySelector('canvas');
-      if (!canvas) {
-        viewerRef.current.innerHTML = '';
-        canvas = document.createElement('canvas');
-        canvas.className = 'pdf-page-canvas shadow-2xl rounded-lg mx-auto block transition-all duration-200';
-        viewerRef.current.appendChild(canvas);
-      }
-
-      const context = canvas.getContext('2d');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      canvas.style.width = `${Math.round(viewport.width)}px`;
-      canvas.style.height = `${Math.round(viewport.height)}px`;
-      canvas.style.maxWidth = 'none';
-
-      const renderContext = {
-        canvasContext: context,
-        viewport: viewport
-      };
-
-      const task = page.render(renderContext);
-      renderTaskRef.current = task;
-      await task.promise;
-      renderTaskRef.current = null;
-      console.log(`✅ Rendered page ${pageNum} at ${zoom}% zoom (width: ${viewport.width}px)`);
-    } catch (err) {
-      if (err?.name !== 'RenderingCancelledException') {
-        console.error(`Error rendering page ${pageNum}:`, err);
-      }
-    }
-  }, [zoomLevel]);
 
   useEffect(() => {
     if (!bookId) {

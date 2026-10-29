@@ -1,84 +1,14 @@
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { useState, useEffect } from 'react'
 import Header from '../components/Header'
 import HeroSection from '../components/HeroSection'
 import Footer from '../components/Footer'
-import CountUp from '../components/CountUp'
 import { BookOpen, Sparkles, Brain, Search, BookMarked, Globe, ArrowRight, TrendingUp, MessageCircle, Download, Trophy } from 'lucide-react'
 import { useOfflineRedirect } from '../hooks/useOfflineRedirect'
-import { supabase } from '../lib/supabaseClient'
-
-// Counter Stat Component
-function CounterStat({ target, suffix, label, duration = 2 }) {
-  return (
-    <div>
-      <div className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl text-dark-gray dark:text-white mb-3 sm:mb-4 leading-none">
-        <CountUp
-          from={0}
-          to={target}
-          separator=","
-          direction="up"
-          duration={duration}
-          className="count-up-text"
-        />
-        {suffix}
-      </div>
-      <div className="text-xs font-medium uppercase tracking-widest text-dark-gray/60 dark:text-white/60">
-        {label}
-      </div>
-    </div>
-  )
-}
 
 function LandingPage() {
   // Auto-redirect to offline library when offline
   useOfflineRedirect()
-  
-  const [stats, setStats] = useState({
-    booksCount: 10000,
-    usersCount: 50000,
-    avgRating: 4.8
-  })
-
-  useEffect(() => {
-    fetchStats()
-  }, [])
-
-  const fetchStats = async () => {
-    try {
-      // Fetch total users via RPC (same as admin page)
-      const { data: totalUsers, error: usersError } = await supabase.rpc('total_users')
-      
-      // Fetch from public_stats table for books and rating
-      const { data: publicStats, error: statsError } = await supabase
-        .from('public_stats')
-        .select('total_books, average_rating')
-        .eq('id', 1)
-        .single()
-
-      if (!statsError && publicStats) {
-        setStats({
-          booksCount: publicStats.total_books || 10000,
-          usersCount: !usersError ? (totalUsers || 50000) : 50000,
-          avgRating: parseFloat(publicStats.average_rating) || 4.8
-        })
-      } else {
-        // Fallback: fetch books count directly
-        const { count: booksCount } = await supabase
-          .from('books')
-          .select('*', { count: 'exact', head: true })
-
-        setStats({
-          booksCount: booksCount || 10000,
-          usersCount: !usersError ? (totalUsers || 50000) : 50000,
-          avgRating: 4.8
-        })
-      }
-    } catch (error) {
-      console.error('Error fetching stats:', error)
-    }
-  }
   
   const features = [
     {
@@ -823,38 +753,6 @@ function LandingPage() {
         </div>
       </section>
 
-      {/* Stats Section - Swiss Grid */}
-      <section className="bg-white dark:bg-dark-gray py-16 sm:py-20 md:py-24 lg:py-32">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-10 md:gap-12 lg:gap-16 border-t-2 border-dark-gray dark:border-white pt-10 sm:pt-12 md:pt-16">
-            <div>
-              <CounterStat 
-                target={stats.booksCount} 
-                suffix="+" 
-                label="Books Available"
-                duration={2.5}
-              />
-            </div>
-            <div className="border-t-2 md:border-t-0 md:border-l-2 border-dark-gray dark:border-white pt-8 md:pt-0 md:pl-8 lg:pl-12">
-              <CounterStat 
-                target={stats.usersCount} 
-                suffix="+" 
-                label="Total Readers"
-                duration={3}
-              />
-            </div>
-            <div className="border-t-2 md:border-t-0 md:border-l-2 border-dark-gray dark:border-white pt-8 md:pt-0 md:pl-8 lg:pl-12">
-              <CounterStat 
-                target={stats.avgRating} 
-                suffix="" 
-                label="User Rating"
-                duration={2}
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* CTA Section - Swiss Style */}
       <section className="bg-dark-gray dark:bg-white py-16 sm:py-20 md:py-24 lg:py-32">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -868,7 +766,7 @@ function LandingPage() {
             </div>
             <div className="border-t-2 border-white dark:border-dark-gray pt-6 sm:pt-8 md:pt-0 md:border-t-0 md:border-l-2 md:pl-8 lg:pl-12 flex flex-col justify-center">
               <p className="text-base sm:text-lg text-white/70 dark:text-dark-gray/70 mb-6 sm:mb-8 font-light">
-                Join thousands of readers discovering their next favorite book
+                Discover your next favorite book
               </p>
               <Link 
                 to="/books" 

@@ -206,8 +206,8 @@ const Reader = () => {
     setMessages(prev => [...prev, { role: 'loading', text: 'Thinking...' }]);
     
     try {
-      // Use local backend proxy to avoid CORS issues
-      const apiUrl = 'http://localhost:8001/api/chat';
+      const backendUrl = (import.meta.env.VITE_AI_SUGGESTION_URL || 'http://localhost:8001').replace(/\/$/, '');
+      const apiUrl = `${backendUrl}/api/chat`;
       
       console.log('Making API call to backend:', apiUrl);
       
@@ -241,7 +241,8 @@ const Reader = () => {
         role: 'ai', 
         text: aiResponse,
         citations: data.citations || [],
-        spoilerGuard: data.spoiler_guard_active
+        spoilerGuard: data.spoiler_guard_active,
+        retrievalMethod: data.retrieval_method
       }]);
     } catch (error) {
       // Remove loading message
@@ -515,7 +516,7 @@ const Reader = () => {
                   color: antiSpoilerEnabled ? '#4f46e5' : '#6b7280',
                   userSelect: 'none'
                 }}
-                title="Filters out passages beyond your current page to prevent spoilers"
+                title="Filters retrieved passages after your current page; generated answers may still contain spoilers"
               >
                 <input 
                   type="checkbox" 
@@ -525,6 +526,11 @@ const Reader = () => {
                 />
                 🛡️ Anti-Spoiler
               </label>
+            </div>
+            <div style={{ fontSize: '11px', marginTop: '6px', opacity: 0.75 }}>
+              {antiSpoilerEnabled
+                ? 'Later passages are filtered, but AI answers may still contain spoilers.'
+                : 'Spoiler filter is off; later passages may appear in answers.'}
             </div>
           </div>
           <div className="chatbot-messages">
@@ -536,6 +542,11 @@ const Reader = () => {
             {messages.map((msg, i) => (
               <div key={i} className={`chatbot-message ${msg.role}`}>
                 <div>{msg.text}</div>
+                {msg.role === 'ai' && msg.retrievalMethod && (
+                  <div style={{ marginTop: '6px', fontSize: '11px', opacity: 0.7 }}>
+                    Retrieval: {msg.retrievalMethod.replace(/_/g, ' ')}
+                  </div>
+                )}
                 {msg.citations && msg.citations.length > 0 && (
                   <div style={{ marginTop: '8px', paddingTop: '6px', borderTop: '1px solid rgba(0,0,0,0.08)' }}>
                     <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'rgba(0,0,0,0.55)', marginBottom: '4px', fontWeight: 600 }}>

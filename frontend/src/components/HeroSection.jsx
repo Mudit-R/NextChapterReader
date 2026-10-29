@@ -1,54 +1,7 @@
 import { ArrowRight, Sparkles } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabaseClient'
 
 function HeroSection() {
-  const [stats, setStats] = useState({
-    booksCount: 10000,
-    usersCount: 50000,
-    avgRating: 4.8
-  })
-
-  useEffect(() => {
-    fetchStats()
-  }, [])
-
-  const fetchStats = async () => {
-    try {
-      // Fetch total users via RPC (same as admin page)
-      const { data: totalUsers, error: usersError } = await supabase.rpc('total_users')
-      
-      // Fetch from public_stats table for books and rating
-      const { data: publicStats, error: statsError } = await supabase
-        .from('public_stats')
-        .select('total_books, average_rating')
-        .eq('id', 1)
-        .single()
-
-      if (!statsError && publicStats) {
-        setStats({
-          booksCount: publicStats.total_books || 10000,
-          usersCount: !usersError ? (totalUsers || 50000) : 50000,
-          avgRating: parseFloat(publicStats.average_rating) || 4.8
-        })
-      } else {
-        // Fallback: fetch books count directly
-        const { count: booksCount } = await supabase
-          .from('books')
-          .select('*', { count: 'exact', head: true })
-
-        setStats({
-          booksCount: booksCount || 10000,
-          usersCount: !usersError ? (totalUsers || 50000) : 50000,
-          avgRating: 4.8
-        })
-      }
-    } catch (error) {
-      console.error('Error fetching stats:', error)
-    }
-  }
-
   return (
     <section className="bg-dark-gray dark:bg-white py-16 sm:py-24 md:py-32 lg:py-40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -71,45 +24,26 @@ function HeroSection() {
 
             {/* Description */}
             <p className="text-base sm:text-lg md:text-xl text-white/70 dark:text-dark-gray/70 mb-8 sm:mb-12 md:mb-16 max-w-2xl leading-relaxed font-light">
-              Discover a revolutionary online bookstore where AI meets literature. 
-              Explore thousands of books, get personalized recommendations, and enjoy 
+              Discover a revolutionary online bookstore where AI meets literature.
+              Explore books, get personalized recommendations, and enjoy
               an immersive reading experience.
             </p>
 
             {/* CTA Button - Swiss Style with Inversion Animation */}
-            <Link 
-              to="/books" 
+            <Link
+              to="/books"
               className="group inline-flex items-center gap-3 bg-white dark:bg-dark-gray text-dark-gray dark:text-white px-6 sm:px-8 py-3 sm:py-4 text-xs sm:text-sm font-medium uppercase tracking-widest border-2 border-white dark:border-dark-gray transition-all duration-300 hover:bg-dark-gray dark:hover:bg-white hover:text-white dark:hover:text-dark-gray overflow-hidden relative touch-manipulation"
             >
               <span className="relative z-10 transition-colors duration-300">Explore Books</span>
-              <ArrowRight 
-                className="w-4 h-4 relative z-10 transition-all duration-300 -translate-x-5 opacity-0 group-hover:translate-x-0 group-hover:opacity-100" 
+              <ArrowRight
+                className="w-4 h-4 relative z-10 transition-all duration-300 -translate-x-5 opacity-0 group-hover:translate-x-0 group-hover:opacity-100"
               />
             </Link>
           </div>
 
-          {/* Right Column - Stats Grid */}
-          <div className="md:col-span-4 border-t-2 border-white dark:border-dark-gray pt-8 sm:pt-10 md:pt-0 md:border-t-0 md:border-l-2 md:pl-8 lg:pl-12">
-            <div className="grid grid-cols-3 md:grid-cols-1 gap-8 sm:gap-12 md:gap-16">
-              <div>
-                <div className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-white dark:text-dark-gray mb-2 sm:mb-3 md:mb-4 leading-none">
-                  {stats.booksCount >= 1000 ? `${Math.floor(stats.booksCount / 1000)}K+` : `${stats.booksCount}+`}
-                </div>
-                <div className="text-xs font-medium uppercase tracking-widest text-white/60 dark:text-dark-gray/60">Books</div>
-              </div>
-              <div>
-                <div className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-white dark:text-dark-gray mb-2 sm:mb-3 md:mb-4 leading-none">
-                  {stats.usersCount >= 1000 ? `${Math.floor(stats.usersCount / 1000)}K+` : `${stats.usersCount}+`}
-                </div>
-                <div className="text-xs font-medium uppercase tracking-widest text-white/60 dark:text-dark-gray/60">Total Readers</div>
-              </div>
-              <div>
-                <div className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl text-white dark:text-dark-gray mb-2 sm:mb-3 md:mb-4 leading-none">
-                  {stats.avgRating}
-                </div>
-                <div className="text-xs font-medium uppercase tracking-widest text-white/60 dark:text-dark-gray/60">Rating</div>
-              </div>
-            </div>
+          <div className="md:col-span-4 border-t-2 border-white dark:border-dark-gray pt-8 md:pt-0 md:border-t-0 md:border-l-2 md:pl-8 lg:pl-12 text-white dark:text-dark-gray">
+            <p className="text-xs uppercase tracking-widest opacity-60 mb-5">Your reading companion</p>
+            <p className="text-2xl sm:text-3xl leading-snug">Explore books, track your progress, and discuss what you read.</p>
           </div>
         </div>
       </div>

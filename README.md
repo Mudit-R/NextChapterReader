@@ -1,6 +1,14 @@
 # NextChapter - Digital Library and AI Reading Platform
 
-Live Application: [https://next-chapter-reader.vercel.app](https://next-chapter-reader.vercel.app)
+[![Live Application](https://img.shields.io/badge/Live%20Demo-Vercel%20Production-00d2ff?style=for-the-badge&logo=vercel&logoColor=white)](https://next-chapter-reader.vercel.app)
+[![CI Pipeline](https://img.shields.io/github/actions/workflow/status/Mudit-R/NextChapterReader/ci.yml?branch=main&label=CI%20Pipeline&style=for-the-badge)](https://github.com/Mudit-R/NextChapterReader/actions)
+[![Frontend](https://img.shields.io/badge/Frontend-React%2018%20%7C%20Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://react.dev/)
+[![Backend AI](https://img.shields.io/badge/Backend%20AI-FastAPI%20%7C%20RAG-009688?style=for-the-badge&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![Database](https://img.shields.io/badge/Database-Supabase%20PostgreSQL-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com)
+[![LLM Inference](https://img.shields.io/badge/LLM-Groq%20Llama%203.3-F05A28?style=for-the-badge&logo=meta&logoColor=white)](https://groq.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
+
+> **Live Application:** [https://next-chapter-reader.vercel.app](https://next-chapter-reader.vercel.app)
 
 ---
 
@@ -30,15 +38,15 @@ Live Application: [https://next-chapter-reader.vercel.app](https://next-chapter-
 
 NextChapter is a full-stack digital reading and library management platform designed for seamless book exploration, high-performance in-browser PDF rendering, and AI-powered reading assistance.
 
-Users can browse public-domain classics, customize their library shelves, track reading progress with visual metrics, and interact with an in-book grounded RAG assistant featuring anti-spoiler guardrails that prevent future chapter leaks based on the reader's current page.
+Users can browse public-domain classics, customize their library shelves, track reading progress with visual metrics, and interact with an in-book grounded RAG assistant featuring a page-based retrieval filter to reduce spoilers based on the reader's current page.
 
 ---
 
 ## Key Features
 
 ### 1. In-Book Grounded RAG Assistant with Anti-Spoiler Guardrails
-- Grounded Question Answering: Retrieves relevant passages directly from the current book text to answer character, plot, and thematic inquiries without external hallucination.
-- Dynamic Page Cutoff: Reader specifies their current reading position (e.g. Page 42). The vector search and retrieval engine automatically ignores all chunks originating after page 42, guaranteeing zero spoilers.
+- Grounded Question Answering: Retrieves relevant passages directly from the current book text to support answers to character, plot, and thematic questions. Generated answers may still be inaccurate.
+- Dynamic Page Cutoff: Reader specifies their current reading position (e.g. Page 42). The vector search and retrieval engine automatically ignores all chunks originating after page 42 when the filter is enabled; generated answers can still contain spoilers from model knowledge.
 - Dynamic Model Resolver: Automatically routes synthesis requests through Groq Cloud API with fallbacks across Llama 3.3 70B, Allam 2 7B, and Qwen 2.5.
 - Deep Reasoning Cleaner: Strips internal thought blocks and provides structured, cited responses.
 
@@ -160,6 +168,11 @@ python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
 ---
+
+The `/reader` chat uses `VITE_AI_SUGGESTION_URL` for its backend (default:
+`http://localhost:8001`). Set it to your deployed AI service URL when building
+for production. Its page filter limits retrieved passages; model-generated text
+can still contain spoilers, especially when a book has not been indexed.
 
 ## License
 
