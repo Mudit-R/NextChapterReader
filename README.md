@@ -177,3 +177,13 @@ can still contain spoilers, especially when a book has not been indexed.
 ## License
 
 This project is licensed under the MIT License.
+
+## Route loading
+
+Pages, PDF readers, and the admin console load as separate route bundles with an
+accessible loading message. In the local Vite production build, the main entry
+JavaScript chunk changed from 1,867.14 kB (526.58 kB gzip) to 410.65 kB (126.62 kB
+gzip). Shared and route chunks are additional downloads; these are build sizes,
+not a measured page-load time or a reduction in total application code. The local
+production browser check covered landing, privacy, and the protected library's
+sign-in redirect. Authenticated reader/admin flows still require account testing.

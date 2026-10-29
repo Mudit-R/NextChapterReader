@@ -1,42 +1,49 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route } from 'react-router-dom'
-import LandingPage from './pages/LandingPage'
-import BooksPage from './pages/BooksPage'
-import ReadingListPage from './pages/ReadingListPage'
-import AlreadyReadPage from './pages/AlreadyReadPage'
-import BookDetailPage from './pages/BookDetailPage'
-import SubscriptionPage from './pages/SubscriptionPage'
-import SignInPage from './pages/SignInPage'
-import SignUpPage from './pages/SignUpPage'
-import ForgotPasswordPage from './pages/ForgotPasswordPage'
-import ResetPasswordPage from './pages/ResetPasswordPage'
-import VerifyEmailPage from './pages/VerifyEmailPage'
-import ProfilePage from './pages/ProfilePage'
-import PersonalizationPage from './pages/PersonalizationPage'
-import RecommendedBooksPage from './pages/RecommendedBooksPage'
-import TrendingBooksPage from './pages/TrendingBooksPage'
-import HighestRatedBooksPage from './pages/HighestRatedBooksPage'
-import ExploreBooksPage from './pages/ExploreBooksPage'
-import NewReleasesPage from './pages/NewReleasesPage'
-import OAuthCallbackPage from './pages/OAuthCallbackPage'
-import PrivacyPage from './pages/PrivacyPage'
-import TermsPage from './pages/TermsPage'
-import RefundsPage from './pages/RefundsPage'
-import ContactPage from './pages/ContactPage'
-import ShippingPage from './pages/ShippingPage'
-import OfflinePage from './pages/OfflinePage'
-import Gallery from './components/Gallery'
-import GalleryLocal from './components/GalleryLocal'
-import Reader from './components/Reader'
-import ReaderLocal from './components/ReaderLocal'
-import Admin from './components/Admin'
 import OAuthCallbackHandler from './components/OAuthCallbackHandler'
 import ProtectedRoute from './components/ProtectedRoute'
 import ErrorBoundary from './components/ErrorBoundary'
+
+const LandingPage = lazy(() => import('./pages/LandingPage'))
+const BooksPage = lazy(() => import('./pages/BooksPage'))
+const ReadingListPage = lazy(() => import('./pages/ReadingListPage'))
+const AlreadyReadPage = lazy(() => import('./pages/AlreadyReadPage'))
+const BookDetailPage = lazy(() => import('./pages/BookDetailPage'))
+const SubscriptionPage = lazy(() => import('./pages/SubscriptionPage'))
+const SignInPage = lazy(() => import('./pages/SignInPage'))
+const SignUpPage = lazy(() => import('./pages/SignUpPage'))
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'))
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage'))
+const VerifyEmailPage = lazy(() => import('./pages/VerifyEmailPage'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const PersonalizationPage = lazy(() => import('./pages/PersonalizationPage'))
+const RecommendedBooksPage = lazy(() => import('./pages/RecommendedBooksPage'))
+const TrendingBooksPage = lazy(() => import('./pages/TrendingBooksPage'))
+const HighestRatedBooksPage = lazy(() => import('./pages/HighestRatedBooksPage'))
+const ExploreBooksPage = lazy(() => import('./pages/ExploreBooksPage'))
+const NewReleasesPage = lazy(() => import('./pages/NewReleasesPage'))
+const OAuthCallbackPage = lazy(() => import('./pages/OAuthCallbackPage'))
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'))
+const TermsPage = lazy(() => import('./pages/TermsPage'))
+const RefundsPage = lazy(() => import('./pages/RefundsPage'))
+const ContactPage = lazy(() => import('./pages/ContactPage'))
+const ShippingPage = lazy(() => import('./pages/ShippingPage'))
+const OfflinePage = lazy(() => import('./pages/OfflinePage'))
+const Gallery = lazy(() => import('./components/Gallery'))
+const GalleryLocal = lazy(() => import('./components/GalleryLocal'))
+const Reader = lazy(() => import('./components/Reader'))
+const ReaderLocal = lazy(() => import('./components/ReaderLocal'))
+const Admin = lazy(() => import('./components/Admin'))
 
 function App() {
   return (
     <ErrorBoundary>
       <OAuthCallbackHandler />
+      <Suspense fallback={
+        <div role="status" aria-live="polite" className="min-h-screen flex items-center justify-center bg-cream dark:bg-dark-gray text-dark-gray dark:text-white">
+          <div className="text-center"><p className="text-2xl mb-3">Opening your next chapter…</p><p>Please wait while this page loads.</p></div>
+        </div>
+      }>
       <Routes>
         {/* Public routes - Landing page accessible to everyone including admin */}
         <Route path="/" element={<LandingPage />} />
@@ -236,6 +243,7 @@ function App() {
           } 
         />
       </Routes>
+      </Suspense>
     </ErrorBoundary>
   )
 }
