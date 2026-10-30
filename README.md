@@ -198,3 +198,8 @@ The PDF.js worker is bundled with the frontend, so the reader does not depend
 on an external worker CDN. A local signed-in check opened a catalog book and
 rendered page 2 after navigation. The assistant interface opened, but the AI
 provider rejected the configured API key, so answer generation remains unverified.
+
+The local reader now reads and writes the connected `user_books.progress` field
+and its `finished` status. A signed-in browser test saved page 2 and restored it
+after reload. Other library and dashboard flows still need reconciliation with
+the same schema before the application can be considered production-ready.

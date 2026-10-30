@@ -830,13 +830,13 @@ const ReaderLocal = () => {
     // Save to database if user is logged in
     if (user && user.id) {
       let cancelled = false;
+      setProgressSync('saving');
       const saveProgress = async () => {
-        if (!cancelled) setProgressSync('saving');
         try {
           // First, get existing progress to compare
           const { data: existing } = await supabase
             .from('user_books')
-            .select('current_page, progress_percentage, status')
+            .select('current_page, progress, status')
             .eq('user_id', user.id)
             .eq('book_id', bookId)
             .single();
@@ -847,7 +847,7 @@ const ReaderLocal = () => {
 
           if (existing) {
             // Check if book was completed and is being reset
-            if (existing.status === 'read' || existing.progress_percentage >= 100) {
+            if (existing.status === 'finished' || Number(existing.progress) >= 100) {
               // Book was completed - treat as fresh start
               highestPage = normalizedCurrentPage;
               shouldUpdate = true;
@@ -875,7 +875,7 @@ const ReaderLocal = () => {
           // Determine status
           let status = 'reading';
           if (progress >= 100) {
-            status = 'read';
+            status = 'finished';
           } else if (progress > 0) {
             status = 'reading';
           } else {
@@ -886,7 +886,7 @@ const ReaderLocal = () => {
           // 1. We've reached a new highest page (shouldUpdate = true)
           // 2. Progress changed (different from existing)
           // 3. Status changed (e.g., completed the book)
-          const progressChanged = !existing || existing.progress_percentage !== progress;
+          const progressChanged = !existing || Number(existing.progress) !== progress;
           const statusChanged = !existing || existing.status !== status;
           
           if (shouldUpdate || progressChanged || statusChanged) {
@@ -897,9 +897,8 @@ const ReaderLocal = () => {
                 user_id: user.id,
                 book_id: bookId,
                 current_page: highestPage, // Save highest page reached
-                progress_percentage: progress,
+                progress: progress,
                 status: status,
-                completed_at: progress >= 100 ? nowIso : null,
                 updated_at: nowIso
               }, {
                 onConflict: 'user_id,book_id'
@@ -1123,30 +1122,29 @@ const ReaderLocal = () => {
           try {
             const { data: userBook, error: progressError } = await supabase
               .from('user_books')
-              .select('current_page, progress_percentage, status')
+              .select('current_page, progress, status')
               .eq('user_id', user.id)
               .eq('book_id', bookId)
               .single();
 
             // Check if book was completed (100%)
             if (!progressError && userBook) {
-              const progress = userBook.progress_percentage || 0;
+              const progress = Number(userBook.progress) || 0;
               const page = userBook.current_page || 1;
               const status = userBook.status;
               
-              if (progress >= 100 || status === 'read') {
-                // Book was completed - keep status as 'read' but reset page and progress for re-reading
+              if (progress >= 100 || status === 'finished') {
+                // Book was completed - reset progress for re-reading.
                 console.log('📖 Book was completed. Keeping as read but resetting to page 1 for re-reading.');
                 
-                // Reset page and progress in database but keep status as 'read'
+                // Reset page and progress while retaining the finished status.
                 await supabase
                   .from('user_books')
                   .update({
                     current_page: 1,
-                    progress_percentage: 0,
-                    status: 'read', // Keep as 'read' to maintain completion record
+                    progress: 0,
+                    status: 'finished',
                     updated_at: new Date().toISOString()
-                    // Note: completed_at is preserved to track when they first finished
                   })
                   .eq('user_id', user.id)
                   .eq('book_id', bookId);
@@ -1166,7 +1164,7 @@ const ReaderLocal = () => {
                 }
                 
                 console.log('Book remains marked as read, starting fresh from page 1');
-              } else if (progress > 0 && page >= 1) {
+              } else if (page >= 1) {
                 // User has reading progress - resume from saved page
                 savedPage = Math.max(1, page);
                 savedProgress = progress;
