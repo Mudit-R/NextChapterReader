@@ -59,13 +59,13 @@ export async function fetchUserDashboardData(userId) {
 				.eq("user_id", userId)
 				.order("session_date", { ascending: false }),
 
-			// Books read - user_books rows with status 'read'
+			// Finished books in the deployed user_books schema
 			supabase
 				.from("user_books")
 				.select("*")
 				.eq("user_id", userId)
-				.eq("status", "read")
-				.order("completed_at", { ascending: false }),
+				.eq("status", "finished")
+				.order("updated_at", { ascending: false }),
 
 			// Currently reading - user_books rows with status 'reading'
 			supabase
@@ -190,9 +190,9 @@ export async function fetchUserDashboardData(userId) {
 				.map((item) => {
 					const book = booksById[item.book_id];
 					if (!book) return null;
-					// Prefer explicit completed_at; fall back to updated_at/created_at
+					// The completion time is the last update on a finished row.
 					const rawCompleted =
-						item.completed_at || item.updated_at || item.created_at || null;
+						item.updated_at || item.created_at || null;
 					return {
 						...book,
 						completed_at: rawCompleted,
@@ -229,11 +229,9 @@ export async function fetchUserDashboardData(userId) {
 					return {
 						...book,
 						current_page: item.current_page,
-						// Use progress_percentage from user_books; fall back to legacy progress if present
+						// The deployed schema stores progress directly.
 						progress:
-							typeof item.progress_percentage === "number"
-								? item.progress_percentage
-								: typeof item.progress === "number"
+							typeof item.progress === "number"
 								? item.progress
 								: 0,
 						user_book_id: item.id,

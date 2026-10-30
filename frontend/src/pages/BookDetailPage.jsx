@@ -179,15 +179,15 @@ const BookDetailPage = () => {
       try {
         const { data, error } = await supabase
           .from('user_books')
-          .select('status, progress_percentage')
+          .select('status, progress')
           .eq('user_id', user.id)
           .eq('book_id', id)
           .single();
 
         if (!error && data) {
           setIsInReadingList(data.status === 'want_to_read');
-          setIsRead(data.status === 'read');
-          setProgress(data.progress_percentage || 0);
+          setIsRead(data.status === 'finished');
+          setProgress(data.progress || 0);
         } else {
           // No database entry, check localStorage
           const wishlist = JSON.parse(localStorage.getItem('wishlist') || '[]');
@@ -817,82 +817,26 @@ const BookDetailPage = () => {
 
   const toggleMarkAsRead = async () => {
     const read = JSON.parse(localStorage.getItem('read') || '[]');
-    if (isRead) {
-      const updated = read.filter(bid => bid !== id);
-      localStorage.setItem('read', JSON.stringify(updated));
-      setIsRead(false);
-      setProgress(0);
-      localStorage.removeItem(`book_progress_${id}`);
-      
-      // Remove from database
-      if (user && user.id) {
-        try {
-          // Remove from book_reads table
-          await supabase
-            .from('book_reads')
-            .delete()
-            .eq('user_id', user.id)
-            .eq('book_id', id);
-          
-          // Update user_books status
-          await supabase
-            .from('user_books')
-            .update({
-              status: 'reading',
-              progress_percentage: 0,
-              completed_at: null,
-              updated_at: new Date().toISOString()
-            })
-            .eq('user_id', user.id)
-            .eq('book_id', id);
-        } catch (error) {
-          logger.error('Error unmarking book as read:', error);
-        }
-      }
-    } else {
-      read.push(id);
-      localStorage.setItem('read', JSON.stringify(read));
-      setIsRead(true);
-      setProgress(100);
-      localStorage.setItem(`book_progress_${id}`, '100');
-      
-      // Add to database
-      if (user && user.id) {
-        try {
-          const nowIso = new Date().toISOString();
-          
-          // Insert into book_reads table (for trending tracking)
-          await supabase
-            .from('book_reads')
-            .upsert(
-              {
-                user_id: user.id,
-                book_id: id,
-                read_at: nowIso
-              },
-              { onConflict: 'user_id,book_id' }
-            );
-          
-          // Update user_books table (for user's reading list)
-          await supabase
-            .from('user_books')
-            .upsert(
-              {
-                user_id: user.id,
-                book_id: id,
-                current_page: 1,
-                progress_percentage: 100,
-                status: 'read',
-                completed_at: nowIso,
-                updated_at: nowIso
-              },
-              { onConflict: 'user_id,book_id' }
-            );
-        } catch (error) {
-          logger.error('Error marking book as read in database:', error);
-        }
+    const finished = !isRead;
+    if (user?.id) {
+      const { error } = await supabase.from('user_books').upsert({
+        user_id: user.id,
+        book_id: id,
+        progress: finished ? 100 : 0,
+        status: finished ? 'finished' : 'reading',
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id,book_id' });
+      if (error) {
+        logger.error('Unable to update reading status:', error);
+        alert('Unable to update reading status. Please try again.');
+        return;
       }
     }
+    localStorage.setItem('read', JSON.stringify(finished ? [...new Set([...read, id])] : read.filter(bid => bid !== id)));
+    if (finished) localStorage.setItem(`book_progress_${id}`, '100');
+    else localStorage.removeItem(`book_progress_${id}`);
+    setIsRead(finished);
+    setProgress(finished ? 100 : 0);
   };
 
   const [showWarning, setShowWarning] = useState(false);

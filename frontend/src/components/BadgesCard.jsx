@@ -142,9 +142,9 @@ function BadgesCard({ userId, readingStats = null, genreDistribution = null }) {
       // Use the same logic as reading challenge - count books with status 'read'
       const { data: booksReadData } = await supabase
         .from('user_books')
-        .select('book_id, status, completed_at')
+        .select('book_id, status, updated_at')
         .eq('user_id', userId)
-        .eq('status', 'read')
+        .eq('status', 'finished')
 
       const booksRead = booksReadData?.length || 0
 

@@ -73,7 +73,7 @@ function GenrePreferencesCard({ genreDistribution: propGenreDistribution = {} })
         .from('user_books')
         .select('book_id, status')
         .eq('user_id', user.id)
-        .in('status', ['read', 'reading']) // Get both read and currently reading books
+        .in('status', ['finished', 'reading'])
 
       if (userBooksError) {
         console.error('❌ Error fetching user books:', userBooksError)
@@ -83,7 +83,7 @@ function GenrePreferencesCard({ genreDistribution: propGenreDistribution = {} })
       console.log('📚 User books fetched:', userBooks);
       console.log('📊 Books by status:', {
         reading: userBooks?.filter(b => b.status === 'reading').length || 0,
-        read: userBooks?.filter(b => b.status === 'read').length || 0,
+        read: userBooks?.filter(b => b.status === 'finished').length || 0,
         total: userBooks?.length || 0
       });
 
