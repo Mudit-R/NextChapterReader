@@ -1,4 +1,4 @@
-import { ArrowRight, Sparkles } from 'lucide-react'
+import { ArrowRight, BookOpen } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 function HeroSection() {
@@ -38,6 +38,14 @@ function HeroSection() {
               <ArrowRight
                 className="w-4 h-4 relative z-10 transition-all duration-300 -translate-x-5 opacity-0 group-hover:translate-x-0 group-hover:opacity-100"
               />
+            </Link>
+            <Link
+              to="/demo"
+              className="group mt-4 sm:mt-0 sm:ml-3 inline-flex items-center gap-3 border-2 border-white/35 dark:border-dark-gray/30 text-white dark:text-dark-gray px-6 sm:px-7 py-3 sm:py-4 text-xs sm:text-sm font-medium uppercase tracking-widest transition-colors hover:bg-white/10 dark:hover:bg-dark-gray/5"
+            >
+              <BookOpen className="w-4 h-4" />
+              Try the sample preview
+              <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
 

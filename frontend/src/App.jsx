@@ -6,6 +6,7 @@ import ErrorBoundary from './components/ErrorBoundary'
 import PageLoading from './components/PageLoading'
 
 const LandingPage = lazy(() => import('./pages/LandingPage'))
+const DemoPage = lazy(() => import('./pages/DemoPage'))
 const BooksPage = lazy(() => import('./pages/BooksPage'))
 const ReadingListPage = lazy(() => import('./pages/ReadingListPage'))
 const AlreadyReadPage = lazy(() => import('./pages/AlreadyReadPage'))
@@ -45,6 +46,8 @@ function App() {
       <Routes>
         {/* Public routes - Landing page accessible to everyone including admin */}
         <Route path="/" element={<LandingPage />} />
+        <Route path="/demo" element={<DemoPage />} />
+        <Route path="/demo/read/:slug" element={<DemoPage />} />
         
         {/* Auth routes - Public access, redirect if already logged in */}
         <Route 
