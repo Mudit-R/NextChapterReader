@@ -34,15 +34,21 @@ export default function PdfViewer({
     if (!pdfSource) return;
     let active = true;
     setLoadStatus('loading');
+    const timeoutId = setTimeout(() => {
+      if (active) setLoadStatus('error');
+    }, 15000);
     loadPdf(pdfSource).then(() => {
+      clearTimeout(timeoutId);
       if (active) setLoadStatus('ready');
     }).catch((err) => {
+      clearTimeout(timeoutId);
       // eslint-disable-next-line no-console
       console.error('Failed to load PDF:', err);
       if (active) setLoadStatus('error');
     });
     return () => {
       active = false;
+      clearTimeout(timeoutId);
     };
   }, [pdfSource, loadPdf]);
 
