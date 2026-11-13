@@ -58,6 +58,8 @@ class RAGQueryResponse(BaseModel):
     spoiler_guard_active: bool = False
     retrieval_method: str = "hybrid_dense_sparse_rag"
     model_used: str = "llama-3.1-8b-instant"
+    usage: Optional[Dict[str, Any]] = None
+    timings_ms: Dict[str, float] = Field(default_factory=dict)
 
 
 class SearchChunkResult(BaseModel):

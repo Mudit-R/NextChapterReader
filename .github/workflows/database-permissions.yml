@@ -1,0 +1,19 @@
+name: Database permission regression tests
+
+on:
+  push:
+    paths: ['database_setup.sql', 'database/**', '.github/workflows/database-permissions.yml']
+  pull_request:
+    paths: ['database_setup.sql', 'database/**', '.github/workflows/database-permissions.yml']
+
+jobs:
+  postgres-rls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Bootstrap schema, reapply migration, test access boundaries
+        run: python database/tests/run_permissions.py

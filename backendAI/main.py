@@ -6,7 +6,6 @@ from typing import Optional, List
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 import json
-import asyncio
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -86,6 +85,8 @@ class ChatResponse(BaseModel):
     citations: List[CitationChunk] = []
     spoiler_guard_active: bool = False
     retrieval_method: str = "hybrid_rag"
+    usage: Optional[dict] = None
+    timings_ms: dict = Field(default_factory=dict)
 
 
 class ImageRequest(BaseModel):
@@ -98,6 +99,11 @@ class ImageRequest(BaseModel):
 class ImageResponse(BaseModel):
     image_url: str
     prompt: str
+
+
+@app.get("/api/usage")
+async def usage_report():
+    return rag_engine.get_usage_report()
 
 
 # ==========================================
@@ -154,35 +160,23 @@ async def rag_status():
 @app.post("/api/rag/query/stream")
 async def rag_query_stream(request: RAGQueryRequest):
     """
-    Stream grounded RAG response tokens via Server-Sent Events (SSE) for low perceived latency.
-    Emits token chunks followed by final citation metadata and anti-spoiler status.
+    Stream grounded RAG response deltas from the configured model provider.
+    The final event includes citations, usage, and generation timing metadata.
     """
     async def event_generator():
         try:
-            res = rag_engine.query(request)
-            tokens = res.response.split(" ")
-
-            for i, token in enumerate(tokens):
-                chunk_data = {
-                    "type": "token",
-                    "content": token + (" " if i < len(tokens) - 1 else ""),
-                    "index": i
-                }
-                yield f"data: {json.dumps(chunk_data)}\n\n"
-                await asyncio.sleep(0.010)
-
-            final_data = {
-                "type": "done",
-                "citations": [c.model_dump() for c in res.citations],
-                "spoiler_guard_active": res.spoiler_guard_active,
-                "model_used": res.model_used
-            }
-            yield f"data: {json.dumps(final_data)}\n\n"
+            async for event in rag_engine.stream_query(request):
+                yield f"data: {json.dumps(event)}\n\n"
         except Exception as e:
             err_data = {"type": "error", "error": str(e)}
             yield f"data: {json.dumps(err_data)}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@app.on_event("shutdown")
+async def close_rag_clients():
+    await rag_engine.aclose()
 
 
 class RAGEvaluationRequest(BaseModel):
@@ -237,7 +231,9 @@ async def chat(request: ChatRequest):
             response=rag_res.response,
             citations=rag_res.citations,
             spoiler_guard_active=rag_res.spoiler_guard_active,
-            retrieval_method=rag_res.retrieval_method
+            retrieval_method=rag_res.retrieval_method,
+            usage=rag_res.usage,
+            timings_ms=rag_res.timings_ms
         )
 
     except Exception as e:
@@ -293,6 +289,7 @@ Reject ANY content with:
             temperature=0,
             max_tokens=60,
         )
+        rag_engine.usage_tracker.record(getattr(response, "usage", None), model_to_use, source="moderation")
 
         raw_result = response.choices[0].message.content or ""
         result = rag_engine._clean_response_text(raw_result).strip()
