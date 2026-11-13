@@ -154,7 +154,10 @@ function SampleReader({ book }) {
         <Link to="/demo" className="demo-back-link"><ArrowLeft size={16} /> Back to sample library</Link>
         <div className="demo-reader-title-row">
           <div><p className="demo-eyebrow">Read-only sample · {book.year}</p><h1>{book.title}</h1><p>{book.author}</p></div>
-          <a className="demo-download" href={book.pdf} download>Download sample PDF</a>
+          <div className="demo-reader-actions">
+            <a className="demo-open-pdf" href={book.pdf} target="_blank" rel="noopener noreferrer">Open PDF</a>
+            <a className="demo-download" href={book.pdf} download>Download sample PDF</a>
+          </div>
         </div>
       </section>
       <div className="demo-reader-disclaimer"><ShieldCheck size={17} /><span>This reader uses a bundled sample PDF. Reading position and notes are not saved in this guest preview.</span></div>
