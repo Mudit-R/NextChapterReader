@@ -3,7 +3,7 @@
 // It renders thumbnails immediately and high-res canvases on-demand with smooth scrolling,
 // accurate page detection, zooming, and progress callbacks.
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import usePdfRenderer from '../pdf/usePdfRenderer';
 
 export default function PdfViewer({
@@ -14,6 +14,7 @@ export default function PdfViewer({
   className = '',
   style = {},
 }) {
+  const [loadStatus, setLoadStatus] = useState('idle');
   const {
     loadPdf,
     currentPage,
@@ -31,10 +32,18 @@ export default function PdfViewer({
 
   useEffect(() => {
     if (!pdfSource) return;
-    loadPdf(pdfSource).catch((err) => {
+    let active = true;
+    setLoadStatus('loading');
+    loadPdf(pdfSource).then(() => {
+      if (active) setLoadStatus('ready');
+    }).catch((err) => {
       // eslint-disable-next-line no-console
       console.error('Failed to load PDF:', err);
+      if (active) setLoadStatus('error');
     });
+    return () => {
+      active = false;
+    };
   }, [pdfSource, loadPdf]);
 
   const zoomOut = () => setZoom((z) => Math.max(50, z - 10));
@@ -61,6 +70,22 @@ export default function PdfViewer({
           <button onClick={resetZoom} title="Reset zoom">Reset</button>
         </div>
       </div>
+
+      {loadStatus === 'loading' && (
+        <div role="status" style={{ padding: '12px 16px', color: '#526052', textAlign: 'center' }}>
+          Loading the sample document…
+        </div>
+      )}
+      {loadStatus === 'error' && (
+        <div role="alert" style={{ padding: '14px 16px', color: '#7a3b28', background: '#fff4ee', textAlign: 'center' }}>
+          This PDF could not be rendered in the embedded reader.{' '}
+          {typeof pdfSource === 'string' && (
+            <a href={pdfSource} target="_blank" rel="noopener noreferrer" style={{ color: 'inherit', fontWeight: 700 }}>
+              Open the PDF in a new tab
+            </a>
+          )}
+        </div>
+      )}
 
       {/* Scrollable container that the hook manages */}
       <div
