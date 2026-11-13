@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, BookOpen, Check, Search, ShieldCheck } from 'lucide-react'
 import PdfViewer from '../components/PdfViewer'
@@ -136,6 +136,17 @@ function SampleShelf() {
 }
 
 function SampleReader({ book }) {
+  const [pdfLoadStatus, setPdfLoadStatus] = useState('loading')
+  const onPdfLoadStatusChange = useCallback((status) => setPdfLoadStatus(status), [])
+
+  useEffect(() => {
+    setPdfLoadStatus('loading')
+    const timeout = window.setTimeout(() => {
+      setPdfLoadStatus((status) => status === 'loading' ? 'timeout' : status)
+    }, 12000)
+    return () => window.clearTimeout(timeout)
+  }, [book.pdf])
+
   return (
     <main className="demo-reader-page">
       <div className="demo-breadcrumb"><Link to="/">Home</Link><span>/</span><Link to="/demo">Sample library</Link><span>/</span><span>{book.title}</span></div>
@@ -147,8 +158,15 @@ function SampleReader({ book }) {
         </div>
       </section>
       <div className="demo-reader-disclaimer"><ShieldCheck size={17} /><span>This reader uses a bundled sample PDF. Reading position and notes are not saved in this guest preview.</span></div>
+      {(pdfLoadStatus === 'error' || pdfLoadStatus === 'timeout') && (
+        <div className="demo-reader-fallback" role="alert">
+          <span>The embedded PDF is taking too long to load in this browser.</span>
+          <a href={book.pdf} target="_blank" rel="noopener noreferrer">Open the sample PDF in a new tab</a>
+          <a href={book.pdf} download>Download sample PDF</a>
+        </div>
+      )}
       <section className="demo-pdf-shell" aria-label={`Sample reader for ${book.title}`}>
-        <PdfViewer pdfSource={book.pdf} initialPage={1} className="demo-pdf-viewer" />
+        <PdfViewer pdfSource={book.pdf} initialPage={1} className="demo-pdf-viewer" onLoadStatusChange={onPdfLoadStatusChange} />
       </section>
       <div className="demo-reader-footer"><span>Sample text · {book.title}</span><Link to="/sign-in">Sign in for your personal library <ArrowRight size={14} /></Link></div>
     </main>

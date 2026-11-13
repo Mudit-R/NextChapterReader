@@ -11,6 +11,7 @@ export default function PdfViewer({
   initialPage = 1,
   onPageChange = () => {},
   onProgressUpdate = () => {},
+  onLoadStatusChange,
   className = '',
   style = {},
 }) {
@@ -34,23 +35,24 @@ export default function PdfViewer({
     if (!pdfSource) return;
     let active = true;
     setLoadStatus('loading');
-    const timeoutId = setTimeout(() => {
-      if (active) setLoadStatus('error');
-    }, 15000);
+    onLoadStatusChange?.('loading');
     loadPdf(pdfSource).then(() => {
-      clearTimeout(timeoutId);
-      if (active) setLoadStatus('ready');
+      if (active) {
+        setLoadStatus('ready');
+        onLoadStatusChange?.('ready');
+      }
     }).catch((err) => {
-      clearTimeout(timeoutId);
       // eslint-disable-next-line no-console
       console.error('Failed to load PDF:', err);
-      if (active) setLoadStatus('error');
+      if (active) {
+        setLoadStatus('error');
+        onLoadStatusChange?.('error');
+      }
     });
     return () => {
       active = false;
-      clearTimeout(timeoutId);
     };
-  }, [pdfSource, loadPdf]);
+  }, [pdfSource, loadPdf, onLoadStatusChange]);
 
   const zoomOut = () => setZoom((z) => Math.max(50, z - 10));
   const zoomIn = () => setZoom((z) => Math.min(200, z + 10));
