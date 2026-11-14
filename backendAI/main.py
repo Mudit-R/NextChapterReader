@@ -77,6 +77,7 @@ class ChatRequest(BaseModel):
     book_title: str = ""
     current_page: int = 1
     total_pages: int = 0
+    current_page_text: str = Field(default="", max_length=8000)
     enable_anti_spoiler: bool = True
 
 
@@ -221,6 +222,7 @@ async def chat(request: ChatRequest):
             book_title=request.book_title,
             current_page=request.current_page,
             total_pages=request.total_pages,
+            current_page_text=request.current_page_text,
             enable_anti_spoiler=request.enable_anti_spoiler,
             top_k=4
         )

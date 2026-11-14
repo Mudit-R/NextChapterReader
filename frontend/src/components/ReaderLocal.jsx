@@ -33,8 +33,6 @@ const ReaderLocal = () => {
   const [error, setError] = useState('');
   const [chatbotOpen, setChatbotOpen] = useState(false);
   const [imageGenOpen, setImageGenOpen] = useState(false);
-  const [apiKey, setApiKey] = useState('');
-  const [apiProvider, setApiProvider] = useState('groq'); // Using Groq instead of Gemini
   const [messages, setMessages] = useState([]);
   const [chatbotInput, setChatbotInput] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
@@ -100,24 +98,6 @@ const ReaderLocal = () => {
   
   // Highlights dropdown state
   const [showHighlightsDropdown, setShowHighlightsDropdown] = useState(false);
-
-  // Initialize API key from environment or localStorage
-  useEffect(() => {
-    const envGroqKey = import.meta.env.VITE_GROQ_API_KEY;
-    const savedKey = localStorage.getItem('ai_api_key');
-    const savedProvider = localStorage.getItem('ai_api_provider');
-    
-    if (savedKey) {
-      setApiKey(savedKey);
-    } else if (envGroqKey) {
-      setApiKey(envGroqKey);
-      console.log('Using Groq API key from environment');
-    }
-    
-    if (savedProvider) {
-      setApiProvider(savedProvider);
-    }
-  }, []);
 
   // Load highlights for current book
   useEffect(() => {
@@ -1609,74 +1589,21 @@ const ReaderLocal = () => {
     setMessages(prev => [...prev, { role: 'loading', text: 'Thinking...' }]);
     
     try {
-      // Use the configured API key (either from localStorage or env)
-      const activeApiKey = apiKey || import.meta.env.VITE_GEMINI_API_KEY;
-      
-      if (!activeApiKey) {
-        throw new Error('No API key configured. Please add your API key in the settings.');
-      }
-      
-      const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${activeApiKey}`;
-      
-      console.log('Calling Gemini API...');
-      
-      // Build conversation history for context
-      const conversationHistory = messages
-        .filter(m => m.role !== 'loading')
-        .slice(-6) // Last 3 exchanges
-        .map(m => ({
-          role: m.role === 'user' ? 'user' : 'model',
-          parts: [{ text: m.text }]
-        }));
-      
-      // Enhanced prompt with better context
-      const systemContext = `You are an intelligent book reading assistant. You're helping a reader with "${bookTitle}" by ${bookAuthor}.
-
-Current Context:
-- Book: ${bookTitle}
-- Author: ${bookAuthor}
-- Current Page: ${currentPage}${totalPages > 0 ? ` of ${totalPages}` : ''}
-
-Your Role:
-- Answer questions about the book's plot, characters, themes, and literary elements
-- Provide insights and analysis when asked
-- Help with understanding difficult passages
-- Discuss the book's context and background
-- Keep responses concise (2-3 sentences) unless more detail is requested
-
-Guidelines:
-- Be conversational and friendly
-- Avoid spoilers unless specifically asked
-- If you don't know something about this specific book, say so
-- Focus on being helpful and educational`;
-
-      const response = await fetch(apiUrl, {
+      const backendUrl = (import.meta.env.VITE_AI_SUGGESTION_URL || 'https://nextchapter-ai-demo.onrender.com').replace(/\/$/, '');
+      const pageText = viewerRef.current?.querySelector('#text-layer')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 8000) || '';
+      const response = await fetch(`${backendUrl}/api/chat`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          contents: [
-            {
-              role: 'user',
-              parts: [{ text: systemContext }]
-            },
-            {
-              role: 'model',
-              parts: [{ text: 'I understand. I\'m ready to help you with your reading of this book. What would you like to know?' }]
-            },
-            ...conversationHistory,
-            {
-              role: 'user',
-              parts: [{ text: userMessage }]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 500,
-            topP: 0.8,
-            topK: 40
-          }
+          message: userMessage,
+          book_id: String(bookId || bookTitle),
+          book_title: bookTitle,
+          current_page: currentPage,
+          total_pages: totalPages,
+          current_page_text: pageText,
+          enable_anti_spoiler: true
         })
       });
       
@@ -1685,12 +1612,16 @@ Guidelines:
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || `API Error: ${response.status}`);
+        throw new Error(errorData.detail || `AI service error (${response.status})`);
       }
       
       const data = await response.json();
-      const aiResponse = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Sorry, I could not generate a response.';
-      setMessages(prev => [...prev, { role: 'ai', text: aiResponse }]);
+      setMessages(prev => [...prev, {
+        role: 'ai',
+        text: data.response || 'Sorry, I could not generate a response.',
+        citations: data.citations || [],
+        retrievalMethod: data.retrieval_method,
+      }]);
     } catch (error) {
       // Remove loading message
       setMessages(prev => prev.filter(msg => msg.role !== 'loading'));
@@ -1698,12 +1629,12 @@ Guidelines:
       console.error('Chat error:', error);
       
       let errorMessage = 'An error occurred. Please try again.';
-      if (error.message.includes('401') || error.message.includes('Unauthorized')) {
-        errorMessage = 'Invalid API key. Please check your Groq API key.';
+      if (error.message.includes('Failed to fetch') || error.message.includes('Load failed')) {
+        errorMessage = 'The AI service is unavailable. Please try again in a moment.';
       } else if (error.message.includes('429')) {
         errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
-      } else if (error.message.includes('Failed to fetch') || error.message.includes('Load failed')) {
-        errorMessage = 'Network error. Please check your internet connection and try again.';
+      } else if (error.message.includes('401') || error.message.includes('403')) {
+        errorMessage = 'The AI service rejected its server credentials. Please contact support.';
       } else if (error.message) {
         errorMessage = error.message;
       }

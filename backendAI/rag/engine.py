@@ -116,10 +116,10 @@ class RAGEngine:
             return self._resolve_groq_model()
 
         preferred_models = [
-            "allam-2-7b",
             "openai/gpt-oss-120b",
             "llama-3.3-70b-versatile",
             "llama-3.1-8b-instant",
+            "allam-2-7b",
             "qwen/qwen3.6-27b",
             "openai/gpt-oss-20b",
             "llama3-8b-8192",
@@ -156,10 +156,10 @@ class RAGEngine:
             return self._cached_model
         
         PREFERRED_MODELS = [
-            "allam-2-7b",
             "openai/gpt-oss-120b",
             "llama-3.3-70b-versatile",
             "llama-3.1-8b-instant",
+            "allam-2-7b",
             "qwen/qwen3.6-27b",
             "openai/gpt-oss-20b",
             "llama3-8b-8192"
@@ -179,7 +179,7 @@ class RAGEngine:
             except Exception:
                 pass
         
-        self._cached_model = "allam-2-7b"
+        self._cached_model = "openai/gpt-oss-120b"
         return self._cached_model
 
     @staticmethod
@@ -265,7 +265,8 @@ class RAGEngine:
         )
         retrieval_ms = (time.perf_counter() - retrieval_started_at) * 1000
 
-        if not top_chunks:
+        page_text = req.current_page_text.strip()
+        if not top_chunks and not page_text:
             return spoiler_guard_active, retrieval_ms, [], None
 
         context_blocks = []
@@ -280,6 +281,17 @@ class RAGEngine:
                     page_number=chunk.page_number,
                     text_excerpt=chunk.text[:160] + "..." if len(chunk.text) > 160 else chunk.text,
                     relevance_score=round(score, 3),
+                )
+            )
+
+        if page_text:
+            context_blocks.append(f"[CURRENT READER PAGE | Page {req.current_page}]:\n{page_text}")
+            citations.append(
+                CitationChunk(
+                    chunk_id=f"current-page-{req.current_page}",
+                    page_number=req.current_page,
+                    text_excerpt=page_text[:160] + "..." if len(page_text) > 160 else page_text,
+                    relevance_score=1.0,
                 )
             )
 

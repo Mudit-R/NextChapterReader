@@ -44,6 +44,7 @@ class RAGQueryRequest(BaseModel):
     book_title: str = Field(default="", description="Book title for context")
     current_page: int = Field(default=1, description="Current page the reader is on")
     total_pages: int = Field(default=0, description="Total pages in the book")
+    current_page_text: str = Field(default="", max_length=8000, description="Optional text extracted from the page currently open in the reader")
     enable_anti_spoiler: bool = Field(
         default=True, 
         description="If True, restricts retrieval to page <= current_page to prevent spoilers"

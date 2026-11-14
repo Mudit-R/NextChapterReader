@@ -89,7 +89,7 @@ function PrivacyPage() {
               <div className="pl-6 border-l-2 border-white/30 dark:border-dark-gray/30 space-y-4">
                 <p className="text-sm">We do not sell your personal information. We may share data with:</p>
                 <ul className="list-disc list-inside space-y-2 text-sm">
-                  <li><strong>Service Providers:</strong> Supabase (database), Razorpay (payments), AI APIs (Google Gemini)</li>
+                  <li><strong>Service Providers:</strong> Supabase (database), Razorpay (payments), and Groq (server-side AI features)</li>
                   <li><strong>Legal Requirements:</strong> When required by law or to protect our rights</li>
                   <li><strong>Business Transfers:</strong> In case of merger or acquisition</li>
                 </ul>
