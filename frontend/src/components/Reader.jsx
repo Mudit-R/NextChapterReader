@@ -181,7 +181,9 @@ const Reader = () => {
     setMessages(prev => [...prev, { role: 'loading', text: 'Thinking...' }]);
     
     try {
-      const backendUrl = (import.meta.env.VITE_AI_SUGGESTION_URL || 'https://nextchapter-ai-demo.onrender.com').replace(/\/$/, '');
+      const backendUrl = (import.meta.env.PROD
+        ? 'https://nextchapter-ai-demo.onrender.com'
+        : import.meta.env.VITE_AI_SUGGESTION_URL || 'http://localhost:8001').replace(/\/$/, '');
       const apiUrl = `${backendUrl}/api/chat`;
       
       console.log('Making API call to backend:', apiUrl);

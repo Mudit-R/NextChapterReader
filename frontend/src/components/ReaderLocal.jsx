@@ -1589,7 +1589,9 @@ const ReaderLocal = () => {
     setMessages(prev => [...prev, { role: 'loading', text: 'Thinking...' }]);
     
     try {
-      const backendUrl = (import.meta.env.VITE_AI_SUGGESTION_URL || 'https://nextchapter-ai-demo.onrender.com').replace(/\/$/, '');
+      const backendUrl = (import.meta.env.PROD
+        ? 'https://nextchapter-ai-demo.onrender.com'
+        : import.meta.env.VITE_AI_SUGGESTION_URL || 'http://localhost:8001').replace(/\/$/, '');
       const pageText = viewerRef.current?.querySelector('#text-layer')?.textContent?.replace(/\s+/g, ' ').trim().slice(0, 8000) || '';
       const response = await fetch(`${backendUrl}/api/chat`, {
         method: 'POST',
